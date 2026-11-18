@@ -31,11 +31,37 @@ function publicUser(array $row): array {
         'accountId' => $row['account_id'], 'uid' => $row['uid'], 'balance' => (float) $row['balance'],
         'isAdmin' => (int) ($row['is_admin'] ?? 0) === 1, 'avatar' => $row['avatar'] ?? null,
         'bio' => $row['bio'] ?? '', 'referralCode' => $row['referral_code'] ?? '',
+        'vipUntil' => $row['vip_until'] ?? null, 'status' => $row['status'] ?? 'active',
         'initials' => strtoupper(substr(implode('', array_map(fn($part) => $part[0] ?? '', preg_split('/\s+/', $row['name']))), 0, 2)),
     ];
 }
 function requireAdmin(array $current): void {
     if ((int) ($current['is_admin'] ?? 0) !== 1) response(['error' => 'Administrator access required'], 403);
+}
+function clientIp(): string {
+    foreach (['HTTP_CF_CONNECTING_IP','HTTP_X_FORWARDED_FOR','REMOTE_ADDR'] as $key) {
+        $value=trim((string)($_SERVER[$key] ?? ''));
+        if ($value !== '') return trim(explode(',',$value)[0]);
+    }
+    return 'unknown';
+}
+function recordLoginDevice(array $user): void {
+    $pdo=db(); $ip=clientIp(); $agent=substr((string)($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'),0,500);
+    $stmt=$pdo->prepare('SELECT id FROM login_devices WHERE user_id=? AND ip_address=? AND user_agent=?');
+    $stmt->execute([(int)$user['id'],$ip,$agent]);
+    if ($stmt->fetch()) {
+        $pdo->prepare('UPDATE login_devices SET last_seen=CURRENT_TIMESTAMP WHERE user_id=? AND ip_address=? AND user_agent=?')->execute([(int)$user['id'],$ip,$agent]);
+    } else {
+        $pdo->prepare('INSERT INTO login_devices (user_id,ip_address,user_agent) VALUES (?,?,?)')->execute([(int)$user['id'],$ip,$agent]);
+    }
+    function referralRate(PDO $pdo, int $referrerId): float {
+        $stmt=$pdo->prepare('SELECT COUNT(*) FROM users WHERE referred_by=?');
+        $stmt->execute([$referrerId]);
+        $count=(int)$stmt->fetchColumn();
+        if ($count >= 10) return 0.10;
+        if ($count >= 5) return 0.07;
+        return 0.05;
+    }
 }
 function pathParts(): array {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
@@ -53,6 +79,7 @@ function productRows(array $rows): array {
         'total' => (float) $row['total_return_usd'], 'daily' => (float) $row['daily_profit_usd'],
         'hashrate' => (float) $row['hashrate'], 'icon' => $row['icon'],
         'image' => ['/images/dr7.svg','/images/ka3.svg','/images/s23.svg','/images/s21.svg'][$row['id'] - 1] ?? '/images/miner.svg',
+        'vipOnly' => (int)($row['vip_only'] ?? 0) === 1,
     ], $rows);
 }
 
@@ -63,7 +90,7 @@ $body = in_array($method, ['POST', 'PATCH'], true) ? jsonBody() : [];
 
 try {
     if ($parts === ['public', 'products'] && $method === 'GET') {
-        $rows = $pdo->query('SELECT * FROM products WHERE active=1 ORDER BY id')->fetchAll();
+        $rows = $pdo->query('SELECT * FROM products WHERE active=1 AND vip_only=0 ORDER BY id')->fetchAll();
         response(productRows($rows));
     }
     if ($parts === ['coins'] && $method === 'GET') {
@@ -82,7 +109,9 @@ try {
         $stmt->execute([trim((string) ($body['email'] ?? ''))]);
         $found = $stmt->fetch();
         if (!$found || !password_verify((string) ($body['password'] ?? ''), $found['password_hash'])) response(['error' => 'Invalid credentials'], 401);
+        if (($found['status'] ?? 'active') === 'suspended') response(['error' => 'This account has been suspended'],403);
         $_SESSION['user_id'] = (int) $found['id'];
+        recordLoginDevice($found);
         response(['user' => publicUser($found)]);
     }
     if ($parts === ['auth', 'register'] && $method === 'POST') {
@@ -103,6 +132,7 @@ try {
         try { $stmt->execute([$name, $email, password_hash($password, PASSWORD_DEFAULT), $accountId, $uid, $ownReferralCode, $referredBy]); }
         catch (PDOException $error) { response(['error' => 'Email already exists'], 409); }
         $userId = (int) $pdo->lastInsertId(); $_SESSION['user_id'] = $userId;
+        recordLoginDevice($pdo->query('SELECT * FROM users WHERE id='.(int)$userId)->fetch());
         $pdo->prepare('INSERT INTO notifications (user_id, title, message) VALUES (?, ?, ?)')->execute([$userId, 'Account created', 'Your mining account is ready.']);
         $stmt = $pdo->prepare('SELECT * FROM users WHERE id = ?'); $stmt->execute([$userId]);
         response(['user' => publicUser($stmt->fetch())], 201);
@@ -158,9 +188,75 @@ try {
         response(['ok' => true]);
     }
     if ($parts === ['dashboard']) {
-        $stmt = $pdo->prepare('SELECT COALESCE(SUM(p.hashrate),0) hashrate, COALESCE(SUM(p.daily_profit_usd),0) daily, COALESCE(SUM(p.total_return_usd),0) total FROM purchases o JOIN products p ON p.id=o.product_id WHERE o.user_id=? AND o.status="active"');
+        $stmt = $pdo->prepare('SELECT COALESCE(SUM(p.hashrate),0) hashrate, COALESCE(SUM(p.daily_profit_usd),0) daily, COALESCE(SUM(p.total_return_usd),0) total FROM purchases o JOIN products p ON p.id=o.product_id WHERE o.user_id=? AND o.status="active" AND (o.expires_at IS NULL OR o.expires_at > CURRENT_TIMESTAMP)');
         $stmt->execute([$current['id']]); $stats = $stmt->fetch();
         response(['balance' => (float) $current['balance'], 'hashrate' => (float) $stats['hashrate'], 'dailyProfit' => (float) $stats['daily'], 'totalProfit' => (float) $stats['total']]);
+    }
+    if ($parts === ['vip', 'status']) {
+        $vipActive=!empty($current['vip_until']) && strtotime((string)$current['vip_until'])>time();
+        $today=(string)date('Y-m-d');
+        $claim=$pdo->prepare('SELECT id FROM vip_free_claims WHERE user_id=? AND activation_date=?');
+        $claim->execute([(int)$current['id'],$today]);
+        $month=(string)date('Y-m');
+        $count=$pdo->prepare("SELECT COUNT(*) FROM vip_free_claims WHERE user_id=? AND substr(activation_date,1,7)=?");
+        $count->execute([(int)$current['id'],$month]);
+        $monthlyCount=(int)$count->fetchColumn();
+        $reward=$pdo->prepare('SELECT id FROM vip_month_rewards WHERE user_id=? AND reward_month=?');
+        $reward->execute([(int)$current['id'],$month]);
+        response(['active'=>$vipActive,'until'=>$current['vip_until']??null,'price'=>9.99,'claimedToday'=>(bool)$claim->fetch(),'monthlyActivations'=>$monthlyCount,'monthlyReward'=>5,'rewardClaimed'=>(bool)$reward->fetch()]);
+    }
+    if ($parts === ['vip', 'subscribe'] && $method === 'POST') {
+        $stmt=$pdo->prepare("SELECT * FROM products WHERE name='VIP Daily Miner' OR name LIKE 'VIP Black Diamond%' ORDER BY id LIMIT 1");
+        $stmt->execute(); $item=$stmt->fetch();
+        if (!$item) {
+            $pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active,vip_only) VALUES (?,?,?,?,?,?,1,1)')
+                ->execute(['VIP Daily Miner',9.99,5,0.1667,95,'◆']);
+            $id=(int)$pdo->lastInsertId();
+            $stmt=$pdo->prepare('SELECT * FROM products WHERE id=?'); $stmt->execute([$id]); $item=$stmt->fetch();
+        }
+        $network=strtoupper(trim((string)($body['network']??'BTC')));
+        $coins=coinConfig(); if(!array_key_exists($network,$coins)) response(['error'=>'Payment coin is not supported'],422);
+        $cryptoAmount=round(9.99/(float)$coins[$network]['rate'],8);
+        $code='VIP-'.strtoupper(bin2hex(random_bytes(5)));
+        $pdo->prepare('INSERT INTO payments (user_id,product_id,invoice_code,network,address,amount_usd,amount_crypto,status) VALUES (?,?,?,?,?,?,?,\'pending\')')
+            ->execute([$current['id'],$item['id'],$code,$network,$coins[$network]['address'],9.99,$cryptoAmount]);
+        $paymentId=(int)$pdo->lastInsertId();
+        $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([$current['id'],'VIP subscription',9.99,'pending',$code]);
+        response(['id'=>$paymentId,'invoiceCode'=>$code,'network'=>$network,'address'=>$coins[$network]['address'],'amountUsd'=>9.99,'amountCrypto'=>$cryptoAmount,'status'=>'pending','product'=>['name'=>'VIP Subscription','price'=>9.99]],201);
+    }
+    if ($parts === ['vip', 'activate'] && $method === 'POST') {
+        $vipActive=!empty($current['vip_until']) && strtotime((string)$current['vip_until'])>time();
+        if (!$vipActive) response(['error'=>'A VIP subscription is required'],403);
+        $today=(string)date('Y-m-d');
+        $stmt=$pdo->prepare('SELECT id FROM vip_free_claims WHERE user_id=? AND activation_date=?');
+        $stmt->execute([(int)$current['id'],$today]);
+        if ($stmt->fetch()) response(['error'=>'Free machine was already activated today'],422);
+        $pdo->beginTransaction();
+        $pdo->prepare('INSERT INTO vip_free_claims (user_id,activation_date) VALUES (?,?)')->execute([(int)$current['id'],$today]);
+        $product=$pdo->query("SELECT id FROM products WHERE name='VIP Daily Miner' LIMIT 1")->fetch();
+        if (!$product) {
+            $pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active,vip_only) VALUES (?,?,?,?,?,?,1,1)')
+                ->execute(['VIP Daily Miner',9.99,5,0.1667,95,'◆']);
+            $productId=(int)$pdo->lastInsertId();
+        } else $productId=(int)$product['id'];
+        $expires=(string)date('Y-m-d H:i:s',time()+86400);
+        $pdo->prepare('INSERT INTO purchases (user_id,product_id,status,expires_at) VALUES (?,?,\'active\',?)')->execute([(int)$current['id'],$productId,$expires]);
+        $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([(int)$current['id'],'VIP free machine activation',0,'completed','VIP-'.$today]);
+
+        $month=(string)date('Y-m');
+        $count=$pdo->prepare("SELECT COUNT(*) FROM vip_free_claims WHERE user_id=? AND substr(activation_date,1,7)=?");
+        $count->execute([(int)$current['id'],$month]); $monthlyCount=(int)$count->fetchColumn();
+        $reward=$pdo->prepare('SELECT id FROM vip_month_rewards WHERE user_id=? AND reward_month=?');
+        $reward->execute([(int)$current['id'],$month]); $rewardClaimed=(bool)$reward->fetch();
+        $monthlyPayout=false;
+        if ($monthlyCount >= 30 && !$rewardClaimed) {
+            $pdo->prepare('INSERT INTO vip_month_rewards (user_id,reward_month,amount) VALUES (?,?,5)')->execute([(int)$current['id'],$month]);
+            $pdo->prepare('UPDATE users SET balance=balance+5 WHERE id=?')->execute([(int)$current['id']]);
+            $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([(int)$current['id'],'VIP 30-day reward',5,'completed','VIP-M-'.$month]);
+            $monthlyPayout=true;
+        }
+        $pdo->commit();
+        response(['ok'=>true,'expiresAt'=>$expires,'monthlyActivations'=>$monthlyCount,'monthlyPayout'=>$monthlyPayout]);
     }
     if ($parts === ['referrals']) {
         $stmt = $pdo->prepare('SELECT u.id,u.name,u.email,u.created_at,rr.amount_usd,rr.status FROM users u LEFT JOIN referral_rewards rr ON rr.referred_id=u.id AND rr.referrer_id=? WHERE u.referred_by=? ORDER BY u.id DESC');
@@ -169,7 +265,10 @@ try {
         $stmt = $pdo->prepare('SELECT COALESCE(SUM(amount_usd),0) AS total FROM referral_rewards WHERE referrer_id=?');
         $stmt->execute([$current['id']]);
         $total = (float) $stmt->fetch()['total'];
-        response(['code' => $current['referral_code'] ?? '', 'totalEarned' => $total, 'users' => $users]);
+        $count=(int)count($users);
+        $tier=$count>=10?'Ambassador':($count>=5?'Builder':'Starter');
+        $rate=$count>=10?10:($count>=5?7:5);
+        response(['code' => $current['referral_code'] ?? '', 'totalEarned' => $total, 'users' => $users, 'tier'=>$tier, 'rate'=>$rate, 'tiers'=>[['name'=>'Starter','min'=>1,'max'=>4,'rate'=>5],['name'=>'Builder','min'=>5,'max'=>9,'rate'=>7],['name'=>'Ambassador','min'=>10,'max'=>null,'rate'=>10]]]);
     }
     if ($parts === ['withdrawals'] && $method === 'GET') {
         $stmt=$pdo->prepare('SELECT * FROM withdrawals WHERE user_id=? ORDER BY id DESC');
@@ -199,7 +298,11 @@ try {
         $pdo->commit();
         response(['id'=>$withdrawalId,'status'=>'pending','coin'=>$coin,'amountUsd'=>$amount,'amountCoin'=>$coinAmount],201);
     }
-    if ($parts === ['miners'] || $parts === ['products']) response(productRows($pdo->query('SELECT * FROM products WHERE active=1 ORDER BY id')->fetchAll()));
+    if ($parts === ['miners'] || $parts === ['products']) {
+        $vipActive = !empty($current['vip_until']) && strtotime((string)$current['vip_until']) > time();
+        $query = $vipActive ? 'SELECT * FROM products WHERE active=1 ORDER BY id' : 'SELECT * FROM products WHERE active=1 AND vip_only=0 ORDER BY id';
+        response(productRows($pdo->query($query)->fetchAll()));
+    }
     if ($parts === ['coins'] && $method === 'GET') {
         $coins=[];
         foreach(coinConfig() as $code=>$coin) $coins[]=['code'=>$code,'name'=>$coin['name'],'symbol'=>$coin['symbol'],'rate'=>$coin['rate']];
@@ -258,9 +361,47 @@ try {
     }
     if ($parts === ['admin', 'users']) {
         requireAdmin($current);
-        $stmt=$pdo->query('SELECT u.*, (SELECT COALESCE(SUM(amount_usd),0) FROM payments p WHERE p.user_id=u.id AND p.status="paid") AS deposited, (SELECT COUNT(*) FROM purchases pu WHERE pu.user_id=u.id) AS owned FROM users u ORDER BY u.id DESC');
+        $stmt=$pdo->query('SELECT u.*, (SELECT COALESCE(SUM(amount_usd),0) FROM payments p WHERE p.user_id=u.id AND p.status="paid") AS deposited, (SELECT COUNT(*) FROM purchases pu WHERE pu.user_id=u.id) AS owned, (SELECT COALESCE(SUM(pr.daily_profit_usd),0) FROM purchases pu JOIN products pr ON pr.id=pu.product_id WHERE pu.user_id=u.id AND pu.status="active") AS earning FROM users u ORDER BY u.id DESC');
         $rows=$stmt->fetchAll();
-        response(array_map(fn($row)=>['id'=>(int)$row['id'],'name'=>$row['name'],'email'=>$row['email'],'accountId'=>$row['account_id'],'uid'=>$row['uid'],'balance'=>(float)$row['balance'],'isAdmin'=>(int)$row['is_admin'],'avatar'=>$row['avatar'],'bio'=>$row['bio'],'referralCode'=>$row['referral_code'],'deposited'=>(float)$row['deposited'],'owned'=>(int)$row['owned'],'createdAt'=>$row['created_at']],$rows));
+        $result=[];
+        foreach($rows as $row){
+            $devices=$pdo->prepare('SELECT ip_address,user_agent,first_seen,last_seen FROM login_devices WHERE user_id=? ORDER BY last_seen DESC');
+            $devices->execute([$row['id']]);
+            $result[]=['id'=>(int)$row['id'],'name'=>$row['name'],'email'=>$row['email'],'accountId'=>$row['account_id'],'uid'=>$row['uid'],'balance'=>(float)$row['balance'],'isAdmin'=>(int)$row['is_admin'],'status'=>$row['status']??'active','avatar'=>$row['avatar'],'bio'=>$row['bio'],'referralCode'=>$row['referral_code'],'vipUntil'=>$row['vip_until']??null,'deposited'=>(float)$row['deposited'],'owned'=>(int)$row['owned'],'earning'=>(float)$row['earning'],'createdAt'=>$row['created_at'],'devices'=>$devices->fetchAll()];
+        }
+        response($result);
+    }
+    if (count($parts)===4 && $parts[0]==='admin' && $parts[1]==='users' && $method==='POST') {
+        requireAdmin($current);
+        $userId=(int)$parts[2]; $action=$parts[3];
+        $stmt=$pdo->prepare('SELECT id,name,status FROM users WHERE id=?'); $stmt->execute([$userId]); $target=$stmt->fetch();
+        if(!$target) response(['error'=>'User not found'],404);
+        if($action==='suspend') {
+            $pdo->prepare('UPDATE users SET status="suspended",admin_note=? WHERE id=?')->execute([(string)($body['note']??'Suspended by administrator'),$userId]);
+            $pdo->prepare('INSERT INTO account_audit (user_id,actor_id,action,ip_address,user_agent,details) VALUES (?,?,?,?,?,?)')->execute([$userId,$current['id'],'account_suspended',clientIp(),substr((string)($_SERVER['HTTP_USER_AGENT']??''),0,500),(string)($body['note']??'')]);
+            response(['ok'=>true,'status'=>'suspended']);
+        }
+        if($action==='activate') {
+            $pdo->prepare('UPDATE users SET status="active",admin_note=? WHERE id=?')->execute(['',(int)$userId]);
+            $pdo->prepare('INSERT INTO account_audit (user_id,actor_id,action,ip_address,user_agent,details) VALUES (?,?,?,?,?,?)')->execute([$userId,$current['id'],'account_activated',clientIp(),substr((string)($_SERVER['HTTP_USER_AGENT']??''),0,500),'']);
+            response(['ok'=>true,'status'=>'active']);
+        }
+        if($action==='adjust') {
+            $amount=(float)($body['amount']??0); $reason=trim((string)($body['reason']??'Balance adjustment'));
+            if($amount==0) response(['error'=>'Adjustment amount cannot be zero'],422);
+            $pdo->beginTransaction();
+            $pdo->prepare('UPDATE users SET balance=balance+? WHERE id=?')->execute([$amount,$userId]);
+            $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([$userId,'Admin balance adjustment',$amount,'completed','ADJ-'.$userId.'-'.time()]);
+            $pdo->prepare('INSERT INTO account_audit (user_id,actor_id,action,ip_address,user_agent,details) VALUES (?,?,?,?,?,?)')->execute([$userId,$current['id'],'balance_adjusted',clientIp(),substr((string)($_SERVER['HTTP_USER_AGENT']??''),0,500),$reason.' ('.($amount>0?'+':'').$amount.')']);
+            $pdo->commit();
+            response(['ok'=>true,'adjustment'=>$amount]);
+        }
+        response(['error'=>'Invalid action'],422);
+    }
+    if ($parts === ['admin','audit']) {
+        requireAdmin($current);
+        $stmt=$pdo->query('SELECT a.*,u.name AS user_name,au.name AS actor_name FROM account_audit a LEFT JOIN users u ON u.id=a.user_id LEFT JOIN users au ON au.id=a.actor_id ORDER BY a.id DESC');
+        response($stmt->fetchAll());
     }
     if ($parts === ['admin', 'payments']) {
         requireAdmin($current);
@@ -296,12 +437,20 @@ try {
         if ($action === 'confirm') {
             $pdo->beginTransaction();
             $pdo->prepare('UPDATE payments SET status="paid",txid=?,paid_at=CURRENT_TIMESTAMP WHERE id=?')->execute([(string)($body['txid']??''),$paymentId]);
-            $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status) VALUES (?,?,?,\'active\')')->execute([$payment['user_id'],$payment['product_id'],$paymentId]);
+            $product=$pdo->prepare('SELECT vip_only FROM products WHERE id=?'); $product->execute([$payment['product_id']]); $vipOnly=(int)$product->fetchColumn();
+            if ($vipOnly) {
+                $user=$pdo->prepare('SELECT vip_until FROM users WHERE id=?'); $user->execute([$payment['user_id']]); $until=$user->fetchColumn();
+                $base=max(time(),$until ? strtotime((string)$until) : time());
+                $vipUntil=date('Y-m-d H:i:s',$base+30*86400);
+                $pdo->prepare('UPDATE users SET vip_until=? WHERE id=?')->execute([$vipUntil,$payment['user_id']]);
+            } else {
+                $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status) VALUES (?,?,?,\'active\')')->execute([$payment['user_id'],$payment['product_id'],$paymentId]);
+            }
             $pdo->prepare('UPDATE transactions SET status="completed" WHERE user_id=? AND reference=?')->execute([$payment['user_id'],$payment['invoice_code']]);
             $pdo->prepare('INSERT INTO notifications (user_id,title,message) VALUES (?,?,?)')->execute([$payment['user_id'],'Payment confirmed','Your mining product is now active.']);
             $ref=$pdo->prepare('SELECT referred_by FROM users WHERE id=?'); $ref->execute([$payment['user_id']]); $referrerId=(int)$ref->fetchColumn();
             if ($referrerId) {
-                $reward=round((float)$payment['amount_usd']*0.05,8);
+                $reward=round((float)$payment['amount_usd']*referralRate($pdo,$referrerId),8);
                 $pdo->prepare('INSERT INTO referral_rewards (referrer_id,referred_id,amount_usd,status) VALUES (?,?,?,\'paid\')')->execute([$referrerId,$payment['user_id'],$reward]);
                 $pdo->prepare('UPDATE users SET balance=balance+? WHERE id=?')->execute([$reward,$referrerId]);
                 $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([$referrerId,'Referral reward',$reward,'completed','REF-'.$payment['invoice_code']]);
@@ -350,12 +499,19 @@ try {
         if ($payment['status'] !== 'paid') {
             $pdo->beginTransaction();
             $pdo->prepare('UPDATE payments SET status="paid", txid=?, paid_at=CURRENT_TIMESTAMP WHERE id=?')->execute([(string)($payload['txid']??''),$payment['id']]);
-            $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status) VALUES (?,?,?,\'active\')')->execute([$payment['user_id'],$payment['product_id'],$payment['id']]);
+            $product=$pdo->prepare('SELECT vip_only FROM products WHERE id=?'); $product->execute([$payment['product_id']]); $vipOnly=(int)$product->fetchColumn();
+            if ($vipOnly) {
+                $user=$pdo->prepare('SELECT vip_until FROM users WHERE id=?'); $user->execute([$payment['user_id']]); $until=$user->fetchColumn();
+                $base=max(time(),$until ? strtotime((string)$until) : time());
+                $pdo->prepare('UPDATE users SET vip_until=? WHERE id=?')->execute([date('Y-m-d H:i:s',$base+30*86400),$payment['user_id']]);
+            } else {
+                $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status) VALUES (?,?,?,\'active\')')->execute([$payment['user_id'],$payment['product_id'],$payment['id']]);
+            }
             $pdo->prepare('UPDATE transactions SET status="completed" WHERE user_id=? AND reference=?')->execute([$payment['user_id'],$payment['invoice_code']]);
             $pdo->prepare('INSERT INTO notifications (user_id,title,message) VALUES (?,?,?)')->execute([$payment['user_id'],'Payment confirmed','Your mining product is now active.']);
             $ref=$pdo->prepare('SELECT referred_by FROM users WHERE id=?'); $ref->execute([$payment['user_id']]); $referrerId=(int)$ref->fetchColumn();
             if ($referrerId) {
-                $reward=round((float)$payment['amount_usd']*0.05,8);
+                $reward=round((float)$payment['amount_usd']*referralRate($pdo,$referrerId),8);
                 $pdo->prepare('INSERT INTO referral_rewards (referrer_id,referred_id,amount_usd,status) VALUES (?,?,?,\'paid\')')->execute([$referrerId,$payment['user_id'],$reward]);
                 $pdo->prepare('UPDATE users SET balance=balance+? WHERE id=?')->execute([$reward,$referrerId]);
                 $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([$referrerId,'Referral reward',$reward,'completed','REF-'.$payment['invoice_code']]);

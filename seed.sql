@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS `users` (
   `bio` VARCHAR(500) NULL,
   `referral_code` VARCHAR(32) NULL,
   `referred_by` INT UNSIGNED NULL,
+  `vip_until` TIMESTAMP NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'active',
+  `admin_note` TEXT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `users_email_unique` (`email`),
@@ -38,6 +41,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `hashrate` DECIMAL(16,8) NOT NULL,
   `icon` VARCHAR(32) NOT NULL,
   `active` TINYINT(1) NOT NULL DEFAULT 1,
+  `vip_only` TINYINT(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -107,6 +111,7 @@ CREATE TABLE IF NOT EXISTS `purchases` (
   `status` VARCHAR(32) NOT NULL DEFAULT 'active',
   `purchased_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `earnings_paid` DECIMAL(16,8) NOT NULL DEFAULT 0,
+  `expires_at` TIMESTAMP NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `purchases_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `purchases_product_fk` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
@@ -145,13 +150,64 @@ CREATE TABLE IF NOT EXISTS `contact_messages` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `vip_free_claims` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `activation_date` DATE NOT NULL,
+  `activated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vip_claim_day` (`user_id`,`activation_date`),
+  CONSTRAINT `vip_claim_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `vip_month_rewards` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `reward_month` CHAR(7) NOT NULL,
+  `amount` DECIMAL(16,8) NOT NULL DEFAULT 5,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `vip_month` (`user_id`,`reward_month`),
+  CONSTRAINT `vip_month_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `login_devices` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(500) NULL,
+  `first_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_seen` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `login_device` (`user_id`,`ip_address`,`user_agent`),
+  CONSTRAINT `login_device_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `account_audit` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NULL,
+  `actor_id` INT UNSIGNED NULL,
+  `action` VARCHAR(191) NOT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(500) NULL,
+  `details` TEXT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `products`
-  (`id`, `name`, `price_usd`, `total_return_usd`, `daily_profit_usd`, `hashrate`, `icon`, `active`)
+  (`id`, `name`, `price_usd`, `total_return_usd`, `daily_profit_usd`, `hashrate`, `icon`, `active`, `vip_only`)
 VALUES
-  (1, 'Antminer DR7 127 Th', 10.00, 19.00, 2.71, 127, '▧', 1),
-  (2, 'Antminer KA3 (166 Th)', 30.00, 61.00, 3.39, 166, '▦', 1),
-  (3, 'Bitmain Antminer S23', 50.00, 111.00, 3.70, 195, '▥', 1),
-  (4, 'Bitmain Antminer S21 Pro', 100.00, 350.00, 11.67, 234, '▤', 1)
+  (1, 'Antminer DR7 127 Th', 10.00, 19.00, 2.71, 127, '▧', 1, 0),
+  (2, 'Antminer KA3 (166 Th)', 30.00, 61.00, 3.39, 166, '▦', 1, 0),
+  (3, 'Bitmain Antminer S23', 50.00, 111.00, 3.70, 195, '▥', 1, 0),
+  (4, 'Bitmain Antminer S21 Pro', 100.00, 350.00, 11.67, 234, '▤', 1, 0),
+  (5, 'Goldshell Mini-DOGE', 160.00, 520.00, 17.33, 285, '◆', 1, 0),
+  (6, 'Whatsminer M60S', 225.00, 780.00, 26.00, 340, '⬡', 1, 0),
+  (7, 'Avalon Miner A1466', 320.00, 1100.00, 36.67, 410, '◈', 1, 0),
+  (8, 'IceRiver AL3', 480.00, 1600.00, 53.33, 520, '✦', 1, 0),
+  (9, 'Whatsminer M63S+', 680.00, 2350.00, 78.33, 680, '⬢', 1, 0),
+  (10, 'VIP Daily Miner', 9.99, 5.00, 0.1667, 95, '◆', 1, 1)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `price_usd` = VALUES(`price_usd`),
@@ -159,4 +215,5 @@ ON DUPLICATE KEY UPDATE
   `daily_profit_usd` = VALUES(`daily_profit_usd`),
   `hashrate` = VALUES(`hashrate`),
   `icon` = VALUES(`icon`),
-  `active` = VALUES(`active`);
+  `active` = VALUES(`active`),
+  `vip_only` = VALUES(`vip_only`);

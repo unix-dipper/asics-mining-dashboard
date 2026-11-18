@@ -16,6 +16,10 @@ A PHP full-stack mining dashboard inspired by the supplied reference image.
 - Configurable coin wallets and withdrawal requests
 - Referral codes and 5% referral rewards after confirmed purchases
 - Profile editing and JPG/PNG/WebP avatar uploads
+- Live crypto/USD conversion rates from CoinGecko with cached fallback
+- $9.99 VIP subscription, VIP-only machines, 24-hour daily free-machine activation, and a $5 monthly reward after 30 activations
+- Tiered referrals: 5% with 1-4 referrals, 7% with 5-9, and 10% with 10+
+- Administrator account suspension/reactivation, balance adjustments, deposits/earnings summaries, device/IP history, and audit logs
 
 ## Run locally
 

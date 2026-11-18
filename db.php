@@ -45,6 +45,10 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         $pdo->exec('CREATE TABLE IF NOT EXISTS withdrawals (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, coin VARCHAR(16) NOT NULL, address VARCHAR(255) NOT NULL, amount_usd DECIMAL(16,8) NOT NULL, amount_coin DECIMAL(16,8) NOT NULL, status VARCHAR(32) NOT NULL DEFAULT "pending", txid VARCHAR(191) NULL, admin_note TEXT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, processed_at TIMESTAMP NULL, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS referral_rewards (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, referrer_id INT UNSIGNED NOT NULL, referred_id INT UNSIGNED NOT NULL, amount_usd DECIMAL(16,8) NOT NULL DEFAULT 0, status VARCHAR(32) NOT NULL DEFAULT "pending", created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (referrer_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (referred_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS contact_messages (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(191) NOT NULL, email VARCHAR(191) NOT NULL, message TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS vip_free_claims (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, activation_date DATE NOT NULL, activated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY vip_claim_day (user_id, activation_date), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS vip_month_rewards (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, reward_month CHAR(7) NOT NULL, amount DECIMAL(16,8) NOT NULL DEFAULT 5, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY vip_month (user_id, reward_month), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS account_audit (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NULL, actor_id INT UNSIGNED NULL, action VARCHAR(191) NOT NULL, ip_address VARCHAR(45) NULL, user_agent VARCHAR(500) NULL, details TEXT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS login_devices (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, ip_address VARCHAR(45) NULL, user_agent VARCHAR(500) NULL, first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY login_device (user_id, ip_address, user_agent), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
     } else {
         $pdo->exec('PRAGMA foreign_keys = ON');
         $pdo->exec('PRAGMA journal_mode = WAL');
@@ -59,6 +63,10 @@ function initializeDatabase(PDO $pdo, string $driver): void {
             CREATE TABLE IF NOT EXISTS withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, coin TEXT NOT NULL, address TEXT NOT NULL, amount_usd REAL NOT NULL, amount_coin REAL NOT NULL, status TEXT NOT NULL DEFAULT "pending", txid TEXT, admin_note TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, processed_at TEXT, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS referral_rewards (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer_id INTEGER NOT NULL, referred_id INTEGER NOT NULL, amount_usd REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT "pending", created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (referrer_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (referred_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS contact_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS vip_free_claims (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, activation_date TEXT NOT NULL, activated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, activation_date), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS vip_month_rewards (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, reward_month TEXT NOT NULL, amount REAL NOT NULL DEFAULT 5, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, reward_month), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS account_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, actor_id INTEGER, action TEXT NOT NULL, ip_address TEXT, user_agent TEXT, details TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS login_devices (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ip_address TEXT, user_agent TEXT, first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, ip_address, user_agent), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
         ');
     }
 
@@ -68,17 +76,44 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         ensureMySqlColumn($pdo, 'users', 'bio', 'VARCHAR(500) NULL');
         ensureMySqlColumn($pdo, 'users', 'referral_code', 'VARCHAR(32) NULL');
         ensureMySqlColumn($pdo, 'users', 'referred_by', 'INT UNSIGNED NULL');
+        ensureMySqlColumn($pdo, 'users', 'vip_until', 'TIMESTAMP NULL');
+        ensureMySqlColumn($pdo, 'users', 'status', 'VARCHAR(32) NOT NULL DEFAULT "active"');
+        ensureMySqlColumn($pdo, 'users', 'admin_note', 'TEXT NULL');
+        ensureMySqlColumn($pdo, 'products', 'vip_only', 'TINYINT(1) NOT NULL DEFAULT 0');
+        ensureMySqlColumn($pdo, 'purchases', 'expires_at', 'TIMESTAMP NULL');
     } else {
         ensureSqliteColumn($pdo, 'users', 'is_admin', 'INTEGER NOT NULL DEFAULT 0');
         ensureSqliteColumn($pdo, 'users', 'avatar', 'TEXT');
         ensureSqliteColumn($pdo, 'users', 'bio', 'TEXT');
         ensureSqliteColumn($pdo, 'users', 'referral_code', 'TEXT');
         ensureSqliteColumn($pdo, 'users', 'referred_by', 'INTEGER');
+        ensureSqliteColumn($pdo, 'users', 'vip_until', 'TEXT');
+        ensureSqliteColumn($pdo, 'users', 'status', 'TEXT NOT NULL DEFAULT "active"');
+        ensureSqliteColumn($pdo, 'users', 'admin_note', 'TEXT');
+        ensureSqliteColumn($pdo, 'products', 'vip_only', 'INTEGER NOT NULL DEFAULT 0');
+        ensureSqliteColumn($pdo, 'purchases', 'expires_at', 'TEXT');
     }
 
-    if ((int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn() === 0) {
-        $stmt = $pdo->prepare('INSERT INTO products (name, price_usd, total_return_usd, daily_profit_usd, hashrate, icon) VALUES (?, ?, ?, ?, ?, ?)');
-        foreach ([['Antminer DR7 127 Th',10,19,2.71,127,'▧'],['Antminer KA3 (166 Th)',30,61,3.39,166,'▦'],['Bitmain Antminer S23',50,111,3.70,195,'▥'],['Bitmain Antminer S21 Pro',100,350,11.67,234,'▤']] as $product) $stmt->execute($product);
+    $catalog = [
+            ['Antminer DR7 127 Th',10,19,2.71,127,'▧',0],
+            ['Antminer KA3 (166 Th)',30,61,3.39,166,'▦',0],
+            ['Bitmain Antminer S23',50,111,3.70,195,'▥',0],
+            ['Bitmain Antminer S21 Pro',100,350,11.67,234,'▤',0],
+            ['Goldshell Mini-DOGE',160,520,17.33,285,'◆',0],
+            ['Whatsminer M60S',225,780,26.00,340,'⬡',0],
+            ['Avalon Miner A1466',320,1100,36.67,410,'◈',0],
+            ['IceRiver AL3',480,1600,53.33,520,'✦',0],
+            ['Whatsminer M63S+',680,2350,78.33,680,'⬢',0],
+            ['VIP Black Diamond 24H',9.99,5,0.1667,95,'◆',1],
+        ];
+    $find=$pdo->prepare('SELECT id FROM products WHERE name=?');
+    $insert=$pdo->prepare('INSERT INTO products (name, price_usd, total_return_usd, daily_profit_usd, hashrate, icon, vip_only) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    $update=$pdo->prepare('UPDATE products SET price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,icon=?,vip_only=?,active=1 WHERE id=?');
+    foreach($catalog as $product){
+        $find->execute([$product[0]]);
+        $id=$find->fetchColumn();
+        if($id) $update->execute([$product[1],$product[2],$product[3],$product[4],$product[5],$product[6],$id]);
+        else $insert->execute($product);
     }
 
     $pdo->prepare('DELETE FROM users WHERE email = ?')->execute(['demo@asics.test']);
