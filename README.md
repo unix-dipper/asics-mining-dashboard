@@ -29,9 +29,16 @@ php -S localhost:4173
 
 Then open `http://localhost:4173`.
 
-No demo account is created. Public visitors see the landing, products, company, and contact pages before authentication.
+No demo customer account is created. Public visitors see the landing, products, company, and contact pages before authentication.
 
-Create an administrator through environment variables:
+The default administrator is:
+
+```text
+Email: admin@asics.test
+Password: Admin123456!
+```
+
+Change this password immediately after the first login. You can also configure a separate administrator through environment variables:
 
 ```bash
 export ADMIN_EMAIL="admin@example.com"
@@ -44,7 +51,7 @@ The SQLite database is created automatically as `database.sqlite`. For MySQL, `s
 
 The public landing page includes home, products, company, and contact sections. Mining dashboard pages require login. `/admin.php` is intentionally not linked from the website and requires an account marked as an administrator.
 
-To seed or refresh the demo account and products:
+To seed or refresh the administrator and products:
 
 ```bash
 php seed.php

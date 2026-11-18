@@ -10,12 +10,25 @@ function adminPaymentsTable(rows){return `<div class="admin-table-wrap"><table><
 function adminWithdrawalsTable(rows){return `<div class="admin-table-wrap"><table><thead><tr><th>User</th><th>Coin</th><th>Amount</th><th>Destination</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${adminEsc(r.name)}<small>${adminEsc(r.email)}</small></td><td>${adminEsc(r.coin)}</td><td>$${Number(r.amount_usd).toFixed(2)}</td><td class="admin-address">${adminEsc(r.address)}</td><td><span class="admin-status ${adminEsc(r.status)}">${adminEsc(r.status)}</span></td><td>${r.status==="pending"?`<button class="admin-confirm" data-withdrawal="${r.id}" data-action="approve">Approve</button><button class="admin-cancel" data-withdrawal="${r.id}" data-action="reject">Reject</button>`:"—"}</td></tr>`).join("")}</tbody></table></div>`}
 async function loadAdmin(){
   try{
-    const me=await adminApi("/me");if(!me.user.isAdmin){location.replace("/");return;}
+    const me=await adminApi("/me");
+    if(!me.user.isAdmin){renderAdminLogin("This account does not have administrator access.");return;}
     const [overview,users,payments,withdrawals,products,messages]=await Promise.all([adminApi("/admin/overview"),adminApi("/admin/users"),adminApi("/admin/payments"),adminApi("/admin/withdrawals"),adminApi("/admin/products"),adminApi("/admin/messages")]);
     const data={user:me.user,overview,users,payments,withdrawals,products,messages};
     document.querySelector("#adminApp").innerHTML=adminShell(data);
     bindAdmin(data);
-  }catch(error){location.replace("/");}
+  }catch(error){renderAdminLogin(error.message);}
+}
+function renderAdminLogin(message=""){
+  document.querySelector("#adminApp").innerHTML=`<main class="admin-login-page"><form class="admin-login-card"><div class="admin-logo"><div class="brand-mark">₿</div><div><strong>ASICs Mining</strong><span>Administration</span></div></div><h1>Administrator sign in</h1><p>${adminEsc(message)}</p><label>Email<input name="email" type="email" autocomplete="username" required /></label><label>Password<input name="password" type="password" autocomplete="current-password" required /></label><button type="submit">Sign in</button><a href="/">← Back to website</a></form></main>`;
+  document.querySelector(".admin-login-card").addEventListener("submit",async(event)=>{
+    event.preventDefault();
+    const data=Object.fromEntries(new FormData(event.currentTarget));
+    try{
+      const result=await adminApi("/auth/login",{method:"POST",body:JSON.stringify(data)});
+      if(!result.user.isAdmin){renderAdminLogin("This account does not have administrator access.");return;}
+      await loadAdmin();
+    }catch(error){renderAdminLogin(error.message);}
+  });
 }
 function bindAdmin(data){
   document.querySelectorAll("[data-admin-section]").forEach(button=>button.addEventListener("click",()=>{

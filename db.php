@@ -83,18 +83,16 @@ function initializeDatabase(PDO $pdo, string $driver): void {
 
     $pdo->prepare('DELETE FROM users WHERE email = ?')->execute(['demo@asics.test']);
 
-    $adminEmail = strtolower(trim((string) (getenv('ADMIN_EMAIL') ?: '')));
-    $adminPassword = (string) (getenv('ADMIN_PASSWORD') ?: '');
-    if ($adminEmail !== '' && strlen($adminPassword) >= 12) {
-        $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-        $stmt->execute([$adminEmail]);
-        if (!$stmt->fetchColumn()) {
-            $accountId = (string) random_int(1000000, 9999999);
-            $pdo->prepare('INSERT INTO users (name,email,password_hash,account_id,uid,balance,is_admin,referral_code) VALUES (?,?,?,?,?,?,1,?)')
-                ->execute(['Administrator', $adminEmail, password_hash($adminPassword, PASSWORD_DEFAULT), $accountId, strtoupper(bin2hex(random_bytes(6))), 0, 'ADMIN-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8))]);
-        } else {
-            $pdo->prepare('UPDATE users SET is_admin=1 WHERE email=?')->execute([$adminEmail]);
-        }
+    $adminEmail = strtolower(trim((string) (getenv('ADMIN_EMAIL') ?: 'admin@asics.test')));
+    $adminPassword = (string) (getenv('ADMIN_PASSWORD') ?: 'Admin123456!');
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
+    $stmt->execute([$adminEmail]);
+    if (!$stmt->fetchColumn()) {
+        $accountId = (string) random_int(1000000, 9999999);
+        $pdo->prepare('INSERT INTO users (name,email,password_hash,account_id,uid,balance,is_admin,referral_code) VALUES (?,?,?,?,?,?,1,?)')
+            ->execute(['Administrator', $adminEmail, password_hash($adminPassword, PASSWORD_DEFAULT), $accountId, strtoupper(bin2hex(random_bytes(6))), 0, 'ADMIN-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8))]);
+    } else {
+        $pdo->prepare('UPDATE users SET is_admin=1 WHERE email=?')->execute([$adminEmail]);
     }
 
     $pdo->exec('UPDATE users SET referral_code = LOWER(SUBSTR(account_id, 1, 8)) WHERE referral_code IS NULL');

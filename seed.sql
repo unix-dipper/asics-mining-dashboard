@@ -24,6 +24,11 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `users_uid_unique` (`uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+INSERT IGNORE INTO `users`
+  (`id`, `name`, `email`, `password_hash`, `account_id`, `uid`, `balance`, `is_admin`, `referral_code`)
+VALUES
+  (9000001, 'Administrator', 'admin@asics.test', '$2y$12$hi03zIHTiHyfzQ50YSNhDeyh7tcV9BaRnPMyTR0b4lpS/0UMOp2J2', '9000001', 'ADMIN-ASICS', 0, 1, 'ADMIN-ASICS');
+
 CREATE TABLE IF NOT EXISTS `products` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(191) NOT NULL,

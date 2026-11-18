@@ -35,6 +35,15 @@ try {
     }
 
     $pdo->prepare('DELETE FROM users WHERE email = ?')->execute(['demo@asics.test']);
+    $pdo->prepare('DELETE FROM users WHERE email = ?')->execute(['demo@example.com']);
+
+    $adminEmail = 'admin@asics.test';
+    $findAdmin = $pdo->prepare('SELECT id FROM users WHERE email = ?');
+    $findAdmin->execute([$adminEmail]);
+    if (!$findAdmin->fetchColumn()) {
+        $pdo->prepare('INSERT INTO users (name,email,password_hash,account_id,uid,balance,is_admin,referral_code) VALUES (?,?,?,?,?,?,1,?)')
+            ->execute(['Administrator', $adminEmail, password_hash('Admin123456!', PASSWORD_DEFAULT), '9000001', 'ADMIN-' . strtoupper(substr(bin2hex(random_bytes(6)), 0, 12)), 0, 'ADMIN-ASICS']);
+    }
 
     $pdo->commit();
     echo "Seed completed: 4 products are ready. No demo account was created.\n";
