@@ -34,38 +34,10 @@ try {
         }
     }
 
-    $findDemo = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-    $findDemo->execute(['demo@asics.test']);
-    $demoId = $findDemo->fetchColumn();
-
-    if (!$demoId) {
-        $insertDemo = $pdo->prepare(
-            'INSERT INTO users (name, email, password_hash, account_id, uid, balance)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        );
-        $insertDemo->execute([
-            'Demo User',
-            'demo@asics.test',
-            password_hash('demo123', PASSWORD_DEFAULT),
-            '0505050',
-            '8358-4562-4521',
-            400,
-        ]);
-        $demoId = (int) $pdo->lastInsertId();
-
-        $pdo->prepare(
-            'INSERT INTO transactions (user_id, type, amount, status, reference)
-             VALUES (?, ?, ?, ?, ?)'
-        )->execute([$demoId, 'Welcome bonus', 400, 'completed', 'WELCOME']);
-
-        $pdo->prepare(
-            'INSERT INTO notifications (user_id, title, message)
-             VALUES (?, ?, ?)'
-        )->execute([$demoId, 'Welcome to ASICs Mining', 'Your account is ready to start mining.']);
-    }
+    $pdo->prepare('DELETE FROM users WHERE email = ?')->execute(['demo@asics.test']);
 
     $pdo->commit();
-    echo "Seed completed: demo account and 4 products are ready.\n";
+    echo "Seed completed: 4 products are ready. No demo account was created.\n";
 } catch (Throwable $error) {
     $pdo->rollBack();
     fwrite(STDERR, 'Seed failed: ' . $error->getMessage() . "\n");

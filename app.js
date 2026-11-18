@@ -1,4 +1,4 @@
-const state = { language: localStorage.getItem("language") || "ar", authenticated: localStorage.getItem("authenticated") === "true", user: null, route: location.hash.slice(1) || "overview", data: {} };
+const state = { language: localStorage.getItem("language") || "en", authenticated: localStorage.getItem("authenticated") === "true", user: null, route: location.hash.slice(1) || "overview", data: {}, mode:"public" };
 const $ = (selector) => document.querySelector(selector);
 const t = {
   ar: { brand:"منصة التعدين السحابي", overview:"نظرة عامة", live:"التعدين المباشر", transactions:"المعاملات", referrals:"الإحالات", admin:"لوحة الإدارة", security:"الأمان", settings:"الإعدادات", welcome:"مرحباً بك من جديد", dashboard:"لوحة التحكم", active:"نشط", balance:"الرصيد المتاح", hashrate:"قوة التعدين", daily:"الربح اليومي", total:"إجمالي الأرباح", contracts:"عقود التعدين", choose:"اختر خطتك", market:"السوق", miners:"أفضل أجهزة التعدين", deposit:"إيداع", withdraw:"سحب", invite:"دعوة", app:"التطبيق", invest:"استثمر الآن", price:"السعر", totalValue:"الإجمالي", dailyValue:"يومي", login:"تسجيل الدخول", register:"إنشاء حساب", email:"البريد الإلكتروني", password:"كلمة المرور", name:"الاسم الكامل", remember:"تذكرني", demo:"تجربة الحساب التجريبي", save:"حفظ التغييرات", logout:"تسجيل الخروج", noData:"لا توجد بيانات", success:"تم الحفظ بنجاح", loading:"جار التحميل...", notifications:"الإشعارات", securityTitle:"الأمان وكلمة المرور", settingsTitle:"إعدادات الحساب", liveTitle:"مراقبة التعدين المباشر", transactionsTitle:"سجل المعاملات", search:"ابحث عن جهاز...", filter:"تصفية", viewAll:"عرض الكل ›", signInError:"بيانات الدخول غير صحيحة" },
@@ -18,8 +18,7 @@ function setLanguage() { document.documentElement.lang = state.language; documen
 function navItem(route, icon, key) { return `<button class="nav-item ${state.route === route ? "active" : ""}" data-route="${route}"><span>${icon}</span><em>${tr(key)}</em></button>`; }
 function shell(content) {
   const avatar = state.user?.avatar ? `<img src="${esc(state.user.avatar)}" alt="Profile" />` : esc(state.user?.initials || "JD");
-  const adminNav = state.user?.isAdmin ? `${navItem("admin","◆","admin")}` : "";
-  return `<div class="app-shell"><header class="topbar"><div class="brand"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>${tr("brand")}</span></div></div><div class="top-actions"><button class="pill-btn ghost" data-action="language">${state.language === "ar" ? "English" : "العربية"} <span>${state.language === "ar" ? "EN" : "AR"}</span></button><button class="pill-btn vip">VIP <span>✦</span></button><button class="icon-btn" data-route="notifications" aria-label="Notifications">⌁<i></i></button><div class="avatar">${avatar}</div></div></header><main class="dashboard"><aside class="sidebar panel"><div class="account-card"><div class="account-heading"><div><span class="eyebrow">#${esc(state.user?.accountId || "0505050")}</span><strong>${esc(state.user?.name || "Demo User")}</strong></div><div class="account-avatar">${state.user?.avatar ? `<img src="${esc(state.user.avatar)}" alt="Profile" />` : "⌁"}</div></div><div class="account-code">KEY DEMO23 <span>UID / ${esc(state.user?.uid || "8358-4562-4521")}</span></div></div><nav class="side-nav">${navItem("overview","⌂","overview")}${navItem("live","◉","live")}${navItem("transactions","▤","transactions")}${navItem("referrals","♧","referrals")}${navItem("security","♙","security")}${navItem("settings","⚙","settings")}${adminNav}</nav><div class="sidebar-footer"><div class="support-card"><span>?</span><div><b>${state.language === "ar" ? "تحتاج مساعدة؟" : "Need help?"}</b><small>Support available 24/7</small></div><strong>›</strong></div><button class="logout" data-action="logout"><span>↪</span><span>${tr("logout")}</span></button></div></aside><section class="content">${content}</section><aside class="right-panel"><div class="search-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="${tr("search")}" /></div><div class="market-header"><div><span class="eyebrow">${tr("market")}</span><h2>${tr("miners")}</h2></div><button class="filter-btn" data-action="filter">≡</button></div><div class="market-list" id="marketList">${renderMarket(state.data.miners || [])}</div></aside></main></div>`;
+  return `<div class="app-shell"><header class="topbar"><div class="brand"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>${tr("brand")}</span></div></div><div class="top-actions"><button class="pill-btn ghost" data-action="language">${state.language === "ar" ? "English" : "العربية"} <span>${state.language === "ar" ? "EN" : "AR"}</span></button><button class="pill-btn vip">VIP <span>✦</span></button><button class="icon-btn" data-route="notifications" aria-label="Notifications">⌁<i></i></button><div class="avatar">${avatar}</div></div></header><main class="dashboard"><aside class="sidebar panel"><div class="account-card"><div class="account-heading"><div><span class="eyebrow">#${esc(state.user?.accountId || "")}</span><strong>${esc(state.user?.name || "Member")}</strong></div><div class="account-avatar">${state.user?.avatar ? `<img src="${esc(state.user.avatar)}" alt="Profile" />` : "⌁"}</div></div><div class="account-code">KEY ${esc(state.user?.accountId || "")}<span>UID / ${esc(state.user?.uid || "")}</span></div></div><nav class="side-nav">${navItem("overview","⌂","overview")}${navItem("live","◉","live")}${navItem("transactions","▤","transactions")}${navItem("referrals","♧","referrals")}${navItem("security","♙","security")}${navItem("settings","⚙","settings")}</nav><div class="sidebar-footer"><div class="support-card"><span>?</span><div><b>${state.language === "ar" ? "تحتاج مساعدة؟" : "Need help?"}</b><small>Support available 24/7</small></div><strong>›</strong></div><button class="logout" data-action="logout"><span>↪</span><span>${tr("logout")}</span></button></div></aside><section class="content">${content}</section><aside class="right-panel"><div class="search-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="${tr("search")}" /></div><div class="market-header"><div><span class="eyebrow">${tr("market")}</span><h2>${tr("miners")}</h2></div><button class="filter-btn" data-action="filter">≡</button></div><div class="market-list" id="marketList">${renderMarket(state.data.miners || [])}</div></aside></main></div>`;
 }
 function renderMarket(miners) { return miners.map((miner) => `<article class="market-card"><div class="market-card-top"><div class="market-name">${esc(miner.name)}<small class="eyebrow">ASIC MINER</small></div><div class="machine">${esc(miner.icon)}</div></div><div class="market-data"><div><small>${tr("price")}</small><b class="income">$${miner.price.toFixed(2)}</b></div><div><small>${tr("totalValue")}</small><b>$${miner.total.toFixed(2)}</b></div><div><small>${tr("dailyValue")}</small><b>$${miner.daily.toFixed(2)}</b></div><button class="buy-btn" data-buy="${miner.id}">${tr("invest")}</button></div></article>`).join("") || `<div class="empty-state">${tr("noData")}</div>`; }
 function cardHeading(eyebrow, title) { return `<div class="page-heading"><div><span class="eyebrow">${eyebrow}</span><h1>${title}</h1></div><div class="date-chip">${new Date().toLocaleDateString(state.language === "ar" ? "ar" : "en", { day:"numeric", month:"long", year:"numeric" })}</div></div>`; }
@@ -29,6 +28,17 @@ function overview() {
 }
 function metric(icon, color, label, value) { return `<article class="metric-card panel"><span class="metric-icon ${color}">${icon}</span><div><small>${label}</small><strong>${value}</strong></div></article>`; }
 function contractCard(contract) { return `<article class="plan-card"><div class="plan-title"><div class="plan-image">${esc(contract.icon)}</div><div><strong>${esc(contract.name)}</strong><small>SHA-256 · ${contract.hashrate} TH/s</small></div></div><div class="plan-price"><small>${tr("price")}</small><strong>$${contract.price.toFixed(2)}</strong></div><button class="invest-btn" data-buy="${contract.id}">${tr("invest")}</button></article>`; }
+function publicPage() {
+  const products=state.data.publicProducts || [];
+  return `<header class="public-header"><a class="public-brand" href="#" data-public="home"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>Digital mining infrastructure</span></div></a><nav class="public-nav"><a href="#home" data-public="home">Home</a><a href="#products" data-public="products">Products</a><a href="#about" data-public="about">Who we are</a><a href="#contact" data-public="contact">Contact</a></nav><button class="public-login" data-public-action="login">Sign in</button></header>
+  <main id="home" class="public-main">
+    <section class="hero-section"><div class="hero-copy"><span class="public-kicker">Cloud infrastructure, professionally managed</span><h1>Mining power.<br><em>Built for the future.</em></h1><p>Access institutional-grade mining hardware through transparent crypto payments and real-time account reporting.</p><div class="hero-actions"><button class="primary-cta" data-public-action="register">Start mining <span>→</span></button><a class="secondary-cta" href="#products" data-public="products">Explore plans</a></div><div class="hero-trust"><span><b>99.9%</b> uptime</span><span><b>8</b> crypto networks</span><span><b>24/7</b> monitoring</span></div></div>
+    <div class="rig-stage" aria-label="Animated mining rig"><div class="rig-glow"></div><div class="rig-fan fan-left"><i></i><i></i><i></i><i></i></div><div class="rig-fan fan-right"><i></i><i></i><i></i><i></i></div><div class="rig-core"><div class="rig-board"></div><div class="rig-lights"><i></i><i></i><i></i><i></i><i></i></div></div><div class="rig-data"><span>HASH RATE</span><strong>${products.length ? "127.4" : "127.4"} TH/s</strong><em>● MINING</em></div></div></section>
+    <section id="products" class="public-products"><div class="public-section-heading"><div><span>Mining plans</span><h2>Choose your computing power</h2></div><p>Fixed contracts. Transparent yields. No hidden setup fees.</p></div><div class="public-product-grid">${products.map((product)=>`<article class="public-product-card"><div class="public-product-art"><img src="${esc(product.image)}" alt="${esc(product.name)} illustration" /></div><div class="public-product-body"><span class="product-network">SHA-256</span><h3>${esc(product.name)}</h3><div class="product-spec"><div><small>Hashrate</small><strong>${product.hashrate} TH/s</strong></div><div><small>Daily estimate</small><strong>$${Number(product.daily).toFixed(2)}</strong></div></div><div class="public-product-bottom"><div><small>Starting from</small><strong>$${Number(product.price).toFixed(2)}</strong></div><button data-public-action="register">Get started</button></div></div></article>`).join("")}</div></section>
+    <section id="about" class="about-section"><div class="about-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="about-node">ASIC</div></div><div class="about-copy"><span>Who we are</span><h2>Infrastructure you can trust.</h2><p>ASICS Mining connects customers with purpose-built cryptocurrency mining hardware, continuous monitoring, and a clear account experience.</p><div class="about-values"><div><b>01</b><strong>Transparency</strong><small>Clear pricing and visible transaction history.</small></div><div><b>02</b><strong>Security</strong><small>Protected accounts and administrator review.</small></div><div><b>03</b><strong>Support</strong><small>Responsive help across the full customer journey.</small></div></div></div></section>
+    <section id="contact" class="contact-section"><div><span>Contact</span><h2>Let’s build your mining plan.</h2><p>Talk to our team about capacity, referrals, or account support.</p></div><form id="contactForm" class="contact-form"><div><label>Name<input name="name" required /></label><label>Email<input name="email" type="email" required /></label></div><label>Message<textarea name="message" rows="5" required></textarea></label><button type="submit">Send message <span>→</span></button></form></section>
+  </main><footer class="public-footer"><div class="public-brand"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong></div></div><p>Digital mining infrastructure.</p><span>© ${new Date().getFullYear()} ASICS Mining</span></footer>`;
+}
 function settingsPage() {
   const wallets = state.data.wallets || [];
   const avatar = state.user?.avatar ? `<img class="profile-preview" src="${esc(state.user.avatar)}" alt="Profile" />` : `<div class="profile-preview profile-initials">${esc(state.user?.initials || "U")}</div>`;
@@ -68,8 +78,32 @@ function pageContent() {
   if (state.route === "notifications") return `${cardHeading(tr("notifications"), tr("notifications"))}<div class="data-panel panel notification-list">${(state.data.notifications || []).map((item) => `<div class="notification"><span>⌁</span><div><b>${esc(item.title)}</b><small>${esc(item.message)}</small></div><time>${esc(item.date)}</time></div>`).join("")}</div>`;
   return overview();
 }
-function render() { setLanguage(); if (!state.authenticated) { $("#app").innerHTML = loginPage(); bindLoginEvents(); return; } $("#app").innerHTML = shell(pageContent()); bindEvents(); }
-function loginPage() { return `<div class="auth-page"><div class="auth-card panel"><div class="brand auth-brand"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>${tr("brand")}</span></div></div><h1 id="authTitle">${tr("login")}</h1><p class="auth-subtitle">demo@asics.test / demo123</p><form id="authForm"><div id="nameField" class="hidden"><label>${tr("name")}<input name="name" autocomplete="name" /></label><label>Referral code<input name="referralCode" placeholder="ASIC-..." /></label></div><label>${tr("email")}<input name="email" type="email" value="demo@asics.test" required /></label><label>${tr("password")}<input name="password" type="password" value="demo123" required /></label><button class="invest-btn auth-submit" type="submit">${tr("login")}</button></form><button class="text-btn auth-switch" data-action="switchAuth">${tr("register")}</button><button class="demo-link" data-action="demo">${tr("demo")}</button><button class="language-link" data-action="language">${state.language === "ar" ? "English" : "العربية"}</button></div></div>`; }
+function render() {
+  setLanguage();
+  if (!state.authenticated && state.mode === "public") { $("#app").innerHTML = publicPage(); bindPublicEvents(); return; }
+  if (!state.authenticated) { $("#app").innerHTML = loginPage(); bindLoginEvents(); return; }
+  $("#app").innerHTML = shell(pageContent()); bindEvents();
+}
+function loginPage() { return `<div class="auth-page"><button class="auth-back" data-public-action="public">← Back to website</button><div class="auth-card panel"><div class="brand auth-brand"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>${tr("brand")}</span></div></div><h1 id="authTitle">${tr("login")}</h1><p class="auth-subtitle">Access your mining account</p><form id="authForm"><div id="nameField" class="hidden"><label>${tr("name")}<input name="name" autocomplete="name" /></label><label>Referral code<input name="referralCode" placeholder="ASIC-..." /></label></div><label>${tr("email")}<input name="email" type="email" autocomplete="email" required /></label><label>${tr("password")}<input name="password" type="password" autocomplete="current-password" required /></label><button class="invest-btn auth-submit" type="submit">${tr("login")}</button></form><button class="text-btn auth-switch" data-action="switchAuth">${tr("register")}</button><button class="language-link" data-action="language">${state.language === "ar" ? "English" : "العربية"}</button></div></div>`; }
+function bindPublicEvents() {
+  document.querySelectorAll("[data-public-action]").forEach((element)=>element.addEventListener("click",(event)=>{
+    event.preventDefault();
+    const action=element.dataset.publicAction;
+    if(action==="login"){state.mode="auth";window.registerMode=false;render();}
+    if(action==="register"){state.mode="auth";window.registerMode=true;render();setTimeout(()=>$("#nameField")?.classList.remove("hidden"),0);}
+    if(action==="public"){state.mode="public";render();}
+  }));
+  document.querySelectorAll("[data-public]").forEach((element)=>element.addEventListener("click",(event)=>{
+    const section=element.dataset.public;
+    const target=document.querySelector(`#${section}`);
+    if(target){event.preventDefault();target.scrollIntoView({behavior:"smooth"});}
+  }));
+  $("#contactForm")?.addEventListener("submit",async(event)=>{
+    event.preventDefault();
+    const data=Object.fromEntries(new FormData(event.currentTarget));
+    try{await api("/contact",{method:"POST",body:JSON.stringify(data)});toast("Message sent");event.currentTarget.reset();}catch(error){toast(error.message);}
+  });
+}
 function bindLoginEvents() {
   const referral=new URLSearchParams(location.search).get("ref");
   if(referral && $("#authForm input[name=referralCode]")) $("#authForm input[name=referralCode]").value=referral;
@@ -111,9 +145,8 @@ function bindEvents() {
 }
 async function handleAction(action) {
   if (action === "language") { state.language = state.language === "ar" ? "en" : "ar"; render(); return; }
-  if (action === "logout") { try { await api("/auth/logout", { method:"POST", body:"{}" }); } catch (_) {} localStorage.removeItem("authenticated"); state.authenticated = false; state.user = null; state.data = {}; render(); return; }
+  if (action === "logout") { try { await api("/auth/logout", { method:"POST", body:"{}" }); } catch (_) {} localStorage.removeItem("authenticated"); state.authenticated = false; state.user = null; state.data = {}; state.mode="public"; location.hash=""; render(); return; }
   if (action === "switchAuth") { window.registerMode = !window.registerMode; const title = $("#authTitle"); if (title) title.textContent = window.registerMode ? tr("register") : tr("login"); $("#nameField")?.classList.toggle("hidden", !window.registerMode); document.querySelector(".auth-submit").textContent = window.registerMode ? tr("register") : tr("login"); document.querySelector(".auth-switch").textContent = window.registerMode ? tr("login") : tr("register"); return; }
-  if (action === "demo") { $("#authForm input[name=email]").value = "demo@asics.test"; $("#authForm input[name=password]").value = "demo123"; $("#authForm").requestSubmit(); return; }
   if (action === "filter") { state.data.miners.reverse(); $("#marketList").innerHTML = renderMarket(state.data.miners); bindEvents(); return; }
   if (action === "deposit") { state.route="live"; location.hash="live"; await loadPage(); return; }
   if (action === "withdraw") { state.route="settings"; location.hash="settings"; await loadPage(); return; }
@@ -143,7 +176,16 @@ function showInvoice(invoice) {
   modal.addEventListener("click", async (event) => {
     if (event.target === modal || event.target.closest(".modal-close")) return modal.remove();
     const copy = event.target.closest("[data-copy]"); if (copy) { await navigator.clipboard?.writeText(copy.dataset.copy); toast(state.language === "ar" ? "تم نسخ العنوان" : "Address copied"); }
-    const refresh = event.target.closest("[data-refresh-invoice]"); if (refresh) { const result = await api(`/payments/invoice/${refresh.dataset.refreshInvoice}`); toast(result.status === "paid" ? (state.language === "ar" ? "تم تأكيد الدفع" : "Payment confirmed") : (state.language === "ar" ? "ما زال الدفع قيد الانتظار" : "Payment is still pending")); if (result.status === "paid") { modal.remove(); await loadData(); } }
+    const refresh = event.target.closest("[data-refresh-invoice]");
+    if (refresh) {
+      modal.remove();
+      state.route="transactions";
+      location.hash="transactions";
+      try {
+        await api(`/payments/invoice/${refresh.dataset.refreshInvoice}`);
+      } catch (_) {}
+      await loadData();
+    }
   });
 }
 async function updatePassword(event) { event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); if (data.newPassword !== data.confirmPassword) return toast("Passwords do not match"); try { await api("/me/password", { method:"PATCH", body:JSON.stringify(data) }); toast(tr("success")); event.target.reset(); } catch (error) { toast(error.message); } }
@@ -199,7 +241,16 @@ async function loadData() {
 }
 async function loadPage() { try { await loadData(); } catch (error) { localStorage.removeItem("authenticated"); state.authenticated = false; render(); toast(error.message); } }
 window.addEventListener("hashchange", () => { state.route = location.hash.slice(1) || "overview"; if (state.authenticated) loadPage(); });
-render();
+async function loadPublicData() {
+  try {
+    const [products,coins]=await Promise.all([api("/public/products"),api("/coins")]);
+    state.data.publicProducts=products;
+    state.data.coins=coins;
+  } catch (_) {}
+  render();
+}
 if (state.authenticated) {
   loadPage();
+} else {
+  loadPublicData();
 }

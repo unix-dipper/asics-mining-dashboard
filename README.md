@@ -29,9 +29,20 @@ php -S localhost:4173
 
 Then open `http://localhost:4173`.
 
-Demo login: `demo@asics.test` / `demo123`
+No demo account is created. Public visitors see the landing, products, company, and contact pages before authentication.
+
+Create an administrator through environment variables:
+
+```bash
+export ADMIN_EMAIL="admin@example.com"
+export ADMIN_PASSWORD="a-strong-password-of-at-least-12-characters"
+```
+
+Start the PHP app, then open `/admin.php` after signing in with that administrator account. The administration URL is not linked anywhere in the public or member UI.
 
 The SQLite database is created automatically as `database.sqlite`. For MySQL, `seed.sql` creates the `asics_mining` database and all tables. Products and user ownership are stored in the database; a purchase is created only after the invoice is marked paid by the payment webhook.
+
+The public landing page includes home, products, company, and contact sections. Mining dashboard pages require login. `/admin.php` is intentionally not linked from the website and requires an account marked as an administrator.
 
 To seed or refresh the demo account and products:
 

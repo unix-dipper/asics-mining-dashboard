@@ -44,6 +44,7 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         $pdo->exec('CREATE TABLE IF NOT EXISTS wallet_addresses (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, coin VARCHAR(16) NOT NULL, address VARCHAR(255) NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY wallet_user_coin (user_id, coin), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS withdrawals (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, coin VARCHAR(16) NOT NULL, address VARCHAR(255) NOT NULL, amount_usd DECIMAL(16,8) NOT NULL, amount_coin DECIMAL(16,8) NOT NULL, status VARCHAR(32) NOT NULL DEFAULT "pending", txid VARCHAR(191) NULL, admin_note TEXT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, processed_at TIMESTAMP NULL, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS referral_rewards (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, referrer_id INT UNSIGNED NOT NULL, referred_id INT UNSIGNED NOT NULL, amount_usd DECIMAL(16,8) NOT NULL DEFAULT 0, status VARCHAR(32) NOT NULL DEFAULT "pending", created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (referrer_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (referred_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS contact_messages (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(191) NOT NULL, email VARCHAR(191) NOT NULL, message TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB');
     } else {
         $pdo->exec('PRAGMA foreign_keys = ON');
         $pdo->exec('PRAGMA journal_mode = WAL');
@@ -57,6 +58,7 @@ function initializeDatabase(PDO $pdo, string $driver): void {
             CREATE TABLE IF NOT EXISTS wallet_addresses (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, coin TEXT NOT NULL, address TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, coin), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS withdrawals (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, coin TEXT NOT NULL, address TEXT NOT NULL, amount_usd REAL NOT NULL, amount_coin REAL NOT NULL, status TEXT NOT NULL DEFAULT "pending", txid TEXT, admin_note TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, processed_at TEXT, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS referral_rewards (id INTEGER PRIMARY KEY AUTOINCREMENT, referrer_id INTEGER NOT NULL, referred_id INTEGER NOT NULL, amount_usd REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT "pending", created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (referrer_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (referred_id) REFERENCES users(id) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS contact_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
         ');
     }
 
@@ -79,22 +81,20 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         foreach ([['Antminer DR7 127 Th',10,19,2.71,127,'▧'],['Antminer KA3 (166 Th)',30,61,3.39,166,'▦'],['Bitmain Antminer S23',50,111,3.70,195,'▥'],['Bitmain Antminer S21 Pro',100,350,11.67,234,'▤']] as $product) $stmt->execute($product);
     }
 
-    $demo = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-    $demo->execute(['demo@asics.test']);
-    if (!$demo->fetchColumn()) {
-        $pdo->prepare('INSERT INTO users (name,email,password_hash,account_id,uid,balance) VALUES (?,?,?,?,?,?)')->execute(['Demo User','demo@asics.test',password_hash('demo123', PASSWORD_DEFAULT),'0505050','8358-4562-4521',400]);
-        $userId = (int) $pdo->lastInsertId();
-        $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([$userId,'Welcome bonus',400,'completed','WELCOME']);
-        $pdo->prepare('INSERT INTO notifications (user_id,title,message) VALUES (?,?,?)')->execute([$userId,'Welcome to ASICs Mining','Your account is ready to start mining.']);
-    }
+    $pdo->prepare('DELETE FROM users WHERE email = ?')->execute(['demo@asics.test']);
 
-    $pdo->prepare('SELECT id FROM users WHERE email = ?')->execute(['demo@asics.test']);
-    $stmt = $pdo->prepare('SELECT id, referral_code FROM users WHERE email = ?');
-    $stmt->execute(['demo@asics.test']);
-    $demoUser = $stmt->fetch();
-    if ($demoUser) {
-        $pdo->prepare('UPDATE users SET is_admin = 1, referral_code = COALESCE(referral_code, ?) WHERE id = ?')
-            ->execute(['ASIC-DEMO', (int) $demoUser['id']]);
+    $adminEmail = strtolower(trim((string) (getenv('ADMIN_EMAIL') ?: '')));
+    $adminPassword = (string) (getenv('ADMIN_PASSWORD') ?: '');
+    if ($adminEmail !== '' && strlen($adminPassword) >= 12) {
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
+        $stmt->execute([$adminEmail]);
+        if (!$stmt->fetchColumn()) {
+            $accountId = (string) random_int(1000000, 9999999);
+            $pdo->prepare('INSERT INTO users (name,email,password_hash,account_id,uid,balance,is_admin,referral_code) VALUES (?,?,?,?,?,?,1,?)')
+                ->execute(['Administrator', $adminEmail, password_hash($adminPassword, PASSWORD_DEFAULT), $accountId, strtoupper(bin2hex(random_bytes(6))), 0, 'ADMIN-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 8))]);
+        } else {
+            $pdo->prepare('UPDATE users SET is_admin=1 WHERE email=?')->execute([$adminEmail]);
+        }
     }
 
     $pdo->exec('UPDATE users SET referral_code = LOWER(SUBSTR(account_id, 1, 8)) WHERE referral_code IS NULL');

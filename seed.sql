@@ -131,13 +131,14 @@ CREATE TABLE IF NOT EXISTS `notifications` (
   CONSTRAINT `notifications_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO `users`
-  (`id`, `name`, `email`, `password_hash`, `account_id`, `uid`, `balance`, `is_admin`, `referral_code`)
-VALUES
-  (1, 'Demo User', 'demo@asics.test', '$2y$12$1S4.glEeydnZZ26Xe.9Ep.UkFQfWYKKBQMukA8VLGTUoKjyIwkOBq', '0505050', '8358-4562-4521', 400, 1, 'ASIC-DEMO')
-ON DUPLICATE KEY UPDATE
-  `is_admin` = 1,
-  `referral_code` = COALESCE(`referral_code`, 'ASIC-DEMO');
+CREATE TABLE IF NOT EXISTS `contact_messages` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(191) NOT NULL,
+  `email` VARCHAR(191) NOT NULL,
+  `message` TEXT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `products`
   (`id`, `name`, `price_usd`, `total_return_usd`, `daily_profit_usd`, `hashrate`, `icon`, `active`)
@@ -154,13 +155,3 @@ ON DUPLICATE KEY UPDATE
   `hashrate` = VALUES(`hashrate`),
   `icon` = VALUES(`icon`),
   `active` = VALUES(`active`);
-
-INSERT IGNORE INTO `transactions`
-  (`id`, `user_id`, `type`, `amount`, `status`, `reference`)
-VALUES
-  (1, 1, 'Welcome bonus', 400, 'completed', 'WELCOME');
-
-INSERT IGNORE INTO `notifications`
-  (`id`, `user_id`, `title`, `message`)
-VALUES
-  (1, 1, 'Welcome to ASICs Mining', 'Your account is ready to start mining.');

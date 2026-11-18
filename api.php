@@ -52,6 +52,7 @@ function productRows(array $rows): array {
         'id' => (int) $row['id'], 'name' => $row['name'], 'price' => (float) $row['price_usd'],
         'total' => (float) $row['total_return_usd'], 'daily' => (float) $row['daily_profit_usd'],
         'hashrate' => (float) $row['hashrate'], 'icon' => $row['icon'],
+        'image' => ['/images/dr7.svg','/images/ka3.svg','/images/s23.svg','/images/s21.svg'][$row['id'] - 1] ?? '/images/miner.svg',
     ], $rows);
 }
 
@@ -61,6 +62,21 @@ $pdo = db();
 $body = in_array($method, ['POST', 'PATCH'], true) ? jsonBody() : [];
 
 try {
+    if ($parts === ['public', 'products'] && $method === 'GET') {
+        $rows = $pdo->query('SELECT * FROM products WHERE active=1 ORDER BY id')->fetchAll();
+        response(productRows($rows));
+    }
+    if ($parts === ['coins'] && $method === 'GET') {
+        $coins=[];
+        foreach(coinConfig() as $code=>$coin) $coins[]=['code'=>$code,'name'=>$coin['name'],'symbol'=>$coin['symbol'],'rate'=>$coin['rate']];
+        response($coins);
+    }
+    if ($parts === ['contact'] && $method === 'POST') {
+        $name=trim((string)($body['name']??'')); $email=trim((string)($body['email']??'')); $message=trim((string)($body['message']??''));
+        if ($name==='' || !filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($message)<5) response(['error'=>'Please provide your name, a valid email and a message'],422);
+        $pdo->prepare('INSERT INTO contact_messages (name,email,message) VALUES (?,?,?)')->execute([$name,$email,$message]);
+        response(['ok'=>true],201);
+    }
     if ($parts === ['auth', 'login'] && $method === 'POST') {
         $stmt = $pdo->prepare('SELECT * FROM users WHERE email = ?');
         $stmt->execute([trim((string) ($body['email'] ?? ''))]);
@@ -225,6 +241,11 @@ try {
     }
     if (count($parts) === 3 && $parts[0] === 'payments' && $parts[1] === 'invoice' && $method === 'GET') {
         $stmt=$pdo->prepare('SELECT pay.*, p.name product_name FROM payments pay JOIN products p ON p.id=pay.product_id WHERE pay.id=? AND pay.user_id=?'); $stmt->execute([(int)$parts[2],$current['id']]); $payment=$stmt->fetch(); if(!$payment) response(['error'=>'Invoice not found'],404); response($payment);
+    }
+    if ($parts === ['admin', 'messages']) {
+        requireAdmin($current);
+        $stmt=$pdo->query('SELECT id,name,email,message,created_at FROM contact_messages ORDER BY id DESC');
+        response($stmt->fetchAll());
     }
     if ($parts === ['admin', 'overview']) {
         requireAdmin($current);
