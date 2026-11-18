@@ -27,10 +27,66 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `users_uid_unique` (`uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO `users`
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `is_admin` TINYINT(1) NOT NULL DEFAULT 0',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'is_admin');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `avatar` VARCHAR(255) NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'avatar');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `bio` VARCHAR(500) NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'bio');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `referral_code` VARCHAR(32) NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'referral_code');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `referred_by` INT UNSIGNED NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'referred_by');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `vip_until` TIMESTAMP NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'vip_until');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `status` VARCHAR(32) NOT NULL DEFAULT ''active''',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'status');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `users` ADD COLUMN `admin_note` TEXT NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'admin_note');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+INSERT INTO `users`
   (`id`, `name`, `email`, `password_hash`, `account_id`, `uid`, `balance`, `is_admin`, `referral_code`)
 VALUES
-  (9000001, 'Administrator', 'admin@asics.test', '$2y$12$hi03zIHTiHyfzQ50YSNhDeyh7tcV9BaRnPMyTR0b4lpS/0UMOp2J2', '9000001', 'ADMIN-ASICS', 0, 1, 'ADMIN-ASICS');
+  (9000001, 'Administrator', 'admin@asics.test', '$2y$12$hi03zIHTiHyfzQ50YSNhDeyh7tcV9BaRnPMyTR0b4lpS/0UMOp2J2', '9000001', 'ADMIN-ASICS', 0, 1, 'ADMIN-ASICS')
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`),
+  `email` = VALUES(`email`),
+  `password_hash` = VALUES(`password_hash`),
+  `account_id` = VALUES(`account_id`),
+  `uid` = VALUES(`uid`),
+  `is_admin` = 1,
+  `referral_code` = VALUES(`referral_code`);
 
 CREATE TABLE IF NOT EXISTS `products` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -44,6 +100,12 @@ CREATE TABLE IF NOT EXISTS `products` (
   `vip_only` TINYINT(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `products` ADD COLUMN `vip_only` TINYINT(1) NOT NULL DEFAULT 0',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'vip_only');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
 
 CREATE TABLE IF NOT EXISTS `wallet_addresses` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -117,6 +179,12 @@ CREATE TABLE IF NOT EXISTS `purchases` (
   CONSTRAINT `purchases_product_fk` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
   CONSTRAINT `purchases_payment_fk` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `purchases` ADD COLUMN `expires_at` TIMESTAMP NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchases' AND COLUMN_NAME = 'expires_at');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
 
 CREATE TABLE IF NOT EXISTS `transactions` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
