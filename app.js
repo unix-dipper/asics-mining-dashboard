@@ -10,7 +10,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":
 async function api(path, options = {}) {
   const headers = { "Content-Type":"application/json", ...(options.headers || {}) };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
-  const response = await fetch(`/api${path}`, { ...options, headers });
+  const response = await fetch(`/api.php${path}`, { ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error || "Request failed");
   return body;
@@ -53,7 +53,18 @@ async function handleAction(action) {
   if (action === "filter") { state.data.miners.reverse(); $("#marketList").innerHTML = renderMarket(state.data.miners); bindEvents(); return; }
   if (["deposit","withdraw","invite","app"].includes(action)) toast(`${tr(action)} ${state.language === "ar" ? "متاحة من خلال واجهة المحفظة" : "is available from the wallet interface"}`);
 }
-async function purchase(id) { try { await api("/contracts/purchase", { method:"POST", body:JSON.stringify({ minerId:Number(id) }) }); toast(state.language === "ar" ? "تم إنشاء العقد بنجاح" : "Contract created successfully"); await loadData(); } catch (error) { toast(error.message); } }
+async function purchase(id) { try { const invoice = await api("/payments/invoice", { method:"POST", body:JSON.stringify({ productId:Number(id) }) }); showInvoice(invoice); } catch (error) { toast(error.message); } }
+function showInvoice(invoice) {
+  const modal = document.createElement("div");
+  modal.className = "modal-backdrop";
+  modal.innerHTML = `<div class="invoice-modal panel"><button class="modal-close" aria-label="Close">×</button><span class="eyebrow">${state.language === "ar" ? "فاتورة دفع بالعملات الرقمية" : "Crypto payment invoice"}</span><h2>${esc(invoice.product.name)}</h2><div class="invoice-amount"><strong>${invoice.amountCrypto} ${invoice.network}</strong><small>$${Number(invoice.amountUsd).toFixed(2)}</small></div><p>${state.language === "ar" ? "أرسل المبلغ إلى العنوان التالي. سيتم تفعيل المنتج بعد تأكيد الدفع من مزود الدفع." : "Send the amount to the address below. The product activates after payment confirmation from the payment provider."}</p><div class="address-box">${esc(invoice.address)}<button data-copy="${esc(invoice.address)}">Copy</button></div><div class="invoice-meta"><span>${esc(invoice.invoiceCode)}</span><span class="status pending">${invoice.status}</span></div><button class="invest-btn" data-refresh-invoice="${invoice.id}">${state.language === "ar" ? "تحقق من حالة الدفع" : "Check payment status"}</button><small class="invoice-note">${state.language === "ar" ? "للدفع الحقيقي، اضبط CRYPTO_PAYMENT_ADDRESS ووصّل webhook مزود الدفع." : "For live payments, configure CRYPTO_PAYMENT_ADDRESS and connect your provider webhook."}</small></div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", async (event) => {
+    if (event.target === modal || event.target.closest(".modal-close")) return modal.remove();
+    const copy = event.target.closest("[data-copy]"); if (copy) { await navigator.clipboard?.writeText(copy.dataset.copy); toast(state.language === "ar" ? "تم نسخ العنوان" : "Address copied"); }
+    const refresh = event.target.closest("[data-refresh-invoice]"); if (refresh) { const result = await api(`/payments/invoice/${refresh.dataset.refreshInvoice}`); toast(result.status === "paid" ? (state.language === "ar" ? "تم تأكيد الدفع" : "Payment confirmed") : (state.language === "ar" ? "ما زال الدفع قيد الانتظار" : "Payment is still pending")); if (result.status === "paid") { modal.remove(); await loadData(); } }
+  });
+}
 async function updatePassword(event) { event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); if (data.newPassword !== data.confirmPassword) return toast("Passwords do not match"); try { await api("/me/password", { method:"PATCH", body:JSON.stringify(data) }); toast(tr("success")); event.target.reset(); } catch (error) { toast(error.message); } }
 async function updateSettings(event) { event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); try { const result = await api("/me", { method:"PATCH", body:JSON.stringify(data) }); state.user = result.user; if (data.language !== state.language) state.language = data.language; toast(tr("success")); render(); } catch (error) { toast(error.message); } }
 async function loadData() { const [me, dashboard, miners, contracts, transactions, notifications] = await Promise.all([api("/me"), api("/dashboard"), api("/miners"), api("/contracts"), api("/transactions"), api("/notifications")]); state.user = me.user; state.data = { dashboard, miners, contracts, transactions, notifications }; render(); }
