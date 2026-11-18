@@ -1,0 +1,77 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "demo@asics.test",
+      "name": "Demo User",
+      "password": {
+        "salt": "26dbfd3c70caf6d2ce43f98362138a56",
+        "hash": "121c92f4f977fb60acf39748c6a54e6aaf50c3dd298410f8d195c598c4b43f2c968c641a3d6094d76d46877deb1791798cdf4f095bf68b90e79eac3ac3bdc35d"
+      },
+      "accountId": "0505050",
+      "uid": "8358-4562-4521",
+      "balance": 400
+    }
+  ],
+  "sessions": {
+    "bcb98f3f3cfdc44924a835e1ba5663bf60dea01d2e3c9ec9c13d2f32c08763e5": 1
+  },
+  "miners": [
+    {
+      "id": 1,
+      "name": "Antminer DR7 127 Th",
+      "price": 10,
+      "total": 19,
+      "daily": 2.71,
+      "hashrate": 127,
+      "icon": "▧"
+    },
+    {
+      "id": 2,
+      "name": "Antminer KA3 (166 Th)",
+      "price": 30,
+      "total": 61,
+      "daily": 3.39,
+      "hashrate": 166,
+      "icon": "▦"
+    },
+    {
+      "id": 3,
+      "name": "Bitmain Antminer S23",
+      "price": 50,
+      "total": 111,
+      "daily": 3.7,
+      "hashrate": 195,
+      "icon": "▥"
+    },
+    {
+      "id": 4,
+      "name": "Bitmain Antminer S21 Pro",
+      "price": 100,
+      "total": 350,
+      "daily": 11.67,
+      "hashrate": 234,
+      "icon": "▤"
+    }
+  ],
+  "contracts": [],
+  "transactions": [
+    {
+      "id": 1,
+      "userId": 1,
+      "date": "2026-11-18",
+      "type": "Welcome bonus",
+      "amount": 400,
+      "status": "completed"
+    }
+  ],
+  "notifications": [
+    {
+      "id": 1,
+      "userId": 1,
+      "title": "Welcome to ASICs Mining",
+      "message": "Your account is ready to start mining.",
+      "date": "Just now"
+    }
+  ]
+}
