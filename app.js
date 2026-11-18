@@ -1,4 +1,4 @@
-const state = { language: localStorage.getItem("language") || "ar", token: localStorage.getItem("token"), user: null, route: location.hash.slice(1) || "overview", data: {} };
+const state = { language: localStorage.getItem("language") || "ar", authenticated: localStorage.getItem("authenticated") === "true", user: null, route: location.hash.slice(1) || "overview", data: {} };
 const $ = (selector) => document.querySelector(selector);
 const t = {
   ar: { brand:"منصة التعدين السحابي", overview:"نظرة عامة", live:"التعدين المباشر", transactions:"المعاملات", security:"الأمان", settings:"الإعدادات", welcome:"مرحباً بك من جديد", dashboard:"لوحة التحكم", active:"نشط", balance:"الرصيد المتاح", hashrate:"قوة التعدين", daily:"الربح اليومي", total:"إجمالي الأرباح", contracts:"عقود التعدين", choose:"اختر خطتك", market:"السوق", miners:"أفضل أجهزة التعدين", deposit:"إيداع", withdraw:"سحب", invite:"دعوة", app:"التطبيق", invest:"استثمر الآن", price:"السعر", totalValue:"الإجمالي", dailyValue:"يومي", login:"تسجيل الدخول", register:"إنشاء حساب", email:"البريد الإلكتروني", password:"كلمة المرور", name:"الاسم الكامل", remember:"تذكرني", demo:"تجربة الحساب التجريبي", save:"حفظ التغييرات", logout:"تسجيل الخروج", noData:"لا توجد بيانات", success:"تم الحفظ بنجاح", loading:"جار التحميل...", notifications:"الإشعارات", securityTitle:"الأمان وكلمة المرور", settingsTitle:"إعدادات الحساب", liveTitle:"مراقبة التعدين المباشر", transactionsTitle:"سجل المعاملات", search:"ابحث عن جهاز...", filter:"تصفية", viewAll:"عرض الكل ›", signInError:"بيانات الدخول غير صحيحة" },
@@ -9,7 +9,6 @@ const toast = (message) => { const el = $("#toast"); el.textContent = message; e
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" }[char]));
 async function api(path, options = {}) {
   const headers = { "Content-Type":"application/json", ...(options.headers || {}) };
-  if (state.token) headers.Authorization = `Bearer ${state.token}`;
   const response = await fetch(`/api.php${path}`, { ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error || "Request failed");
@@ -36,8 +35,33 @@ function pageContent() {
   if (state.route === "notifications") return `${cardHeading(tr("notifications"), tr("notifications"))}<div class="data-panel panel notification-list">${(state.data.notifications || []).map((item) => `<div class="notification"><span>⌁</span><div><b>${esc(item.title)}</b><small>${esc(item.message)}</small></div><time>${esc(item.date)}</time></div>`).join("")}</div>`;
   return overview();
 }
-function render() { setLanguage(); if (!state.token) { $("#app").innerHTML = loginPage(); return; } $("#app").innerHTML = shell(pageContent()); bindEvents(); }
+function render() { setLanguage(); if (!state.authenticated) { $("#app").innerHTML = loginPage(); bindLoginEvents(); return; } $("#app").innerHTML = shell(pageContent()); bindEvents(); }
 function loginPage() { return `<div class="auth-page"><div class="auth-card panel"><div class="brand auth-brand"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>${tr("brand")}</span></div></div><h1 id="authTitle">${tr("login")}</h1><p class="auth-subtitle">demo@asics.test / demo123</p><form id="authForm"><div id="nameField" class="hidden"><label>${tr("name")}<input name="name" autocomplete="name" /></label></div><label>${tr("email")}<input name="email" type="email" value="demo@asics.test" required /></label><label>${tr("password")}<input name="password" type="password" value="demo123" required /></label><button class="invest-btn auth-submit" type="submit">${tr("login")}</button></form><button class="text-btn auth-switch" data-action="switchAuth">${tr("register")}</button><button class="demo-link" data-action="demo">${tr("demo")}</button><button class="language-link" data-action="language">${state.language === "ar" ? "English" : "العربية"}</button></div></div>`; }
+function bindLoginEvents() {
+  document.querySelectorAll(".auth-card [data-action]").forEach((element) => {
+    element.addEventListener("click", () => handleAction(element.dataset.action));
+  });
+  $("#authForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitButton = event.currentTarget.querySelector(".auth-submit");
+    submitButton.disabled = true;
+    submitButton.textContent = tr("loading");
+    const form = Object.fromEntries(new FormData(event.currentTarget));
+    try {
+      await api(window.registerMode ? "/auth/register" : "/auth/login", {
+        method:"POST",
+        body:JSON.stringify(form)
+      });
+      state.authenticated = true;
+      localStorage.setItem("authenticated", "true");
+      await loadData();
+    } catch (error) {
+      submitButton.disabled = false;
+      submitButton.textContent = window.registerMode ? tr("register") : tr("login");
+      toast(error.message || tr("signInError"));
+    }
+  });
+}
 function bindEvents() {
   document.querySelectorAll("[data-route]").forEach((el) => el.addEventListener("click", () => { state.route = el.dataset.route; location.hash = state.route; loadPage(); }));
   document.querySelectorAll("[data-action]").forEach((el) => el.addEventListener("click", () => handleAction(el.dataset.action)));
@@ -47,7 +71,7 @@ function bindEvents() {
 }
 async function handleAction(action) {
   if (action === "language") { state.language = state.language === "ar" ? "en" : "ar"; render(); return; }
-  if (action === "logout") { localStorage.removeItem("token"); state.token = null; render(); return; }
+  if (action === "logout") { try { await api("/auth/logout", { method:"POST", body:"{}" }); } catch (_) {} localStorage.removeItem("authenticated"); state.authenticated = false; state.user = null; state.data = {}; render(); return; }
   if (action === "switchAuth") { window.registerMode = !window.registerMode; const title = $("#authTitle"); if (title) title.textContent = window.registerMode ? tr("register") : tr("login"); $("#nameField")?.classList.toggle("hidden", !window.registerMode); document.querySelector(".auth-submit").textContent = window.registerMode ? tr("register") : tr("login"); document.querySelector(".auth-switch").textContent = window.registerMode ? tr("login") : tr("register"); return; }
   if (action === "demo") { $("#authForm input[name=email]").value = "demo@asics.test"; $("#authForm input[name=password]").value = "demo123"; $("#authForm").requestSubmit(); return; }
   if (action === "filter") { state.data.miners.reverse(); $("#marketList").innerHTML = renderMarket(state.data.miners); bindEvents(); return; }
@@ -68,8 +92,9 @@ function showInvoice(invoice) {
 async function updatePassword(event) { event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); if (data.newPassword !== data.confirmPassword) return toast("Passwords do not match"); try { await api("/me/password", { method:"PATCH", body:JSON.stringify(data) }); toast(tr("success")); event.target.reset(); } catch (error) { toast(error.message); } }
 async function updateSettings(event) { event.preventDefault(); const data = Object.fromEntries(new FormData(event.target)); try { const result = await api("/me", { method:"PATCH", body:JSON.stringify(data) }); state.user = result.user; if (data.language !== state.language) state.language = data.language; toast(tr("success")); render(); } catch (error) { toast(error.message); } }
 async function loadData() { const [me, dashboard, miners, contracts, transactions, notifications] = await Promise.all([api("/me"), api("/dashboard"), api("/miners"), api("/contracts"), api("/transactions"), api("/notifications")]); state.user = me.user; state.data = { dashboard, miners, contracts, transactions, notifications }; render(); }
-async function loadPage() { try { await loadData(); } catch (error) { localStorage.removeItem("token"); state.token = null; render(); } }
-document.addEventListener("click", (event) => { const action = event.target.closest(".auth-card [data-action]"); if (action) handleAction(action.dataset.action); });
-$("#app").addEventListener("submit", async (event) => { if (event.target.id !== "authForm") return; event.preventDefault(); const form = Object.fromEntries(new FormData(event.target)); try { const result = await api(window.registerMode ? "/auth/register" : "/auth/login", { method:"POST", body:JSON.stringify(form) }); state.token = result.token; localStorage.setItem("token", state.token); await loadPage(); } catch (error) { toast(tr("signInError")); } });
-window.addEventListener("hashchange", () => { state.route = location.hash.slice(1) || "overview"; if (state.token) loadPage(); });
-render(); if (state.token) loadPage();
+async function loadPage() { try { await loadData(); } catch (error) { localStorage.removeItem("authenticated"); state.authenticated = false; render(); toast(error.message); } }
+window.addEventListener("hashchange", () => { state.route = location.hash.slice(1) || "overview"; if (state.authenticated) loadPage(); });
+render();
+if (state.authenticated) {
+  loadPage();
+}
