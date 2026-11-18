@@ -1,0 +1,24 @@
+const miners = [
+  {name:"Antminer DR7 127 Th", price:"$10.00", total:"$19.00", daily:"$2.71", icon:"▧"},
+  {name:"Antminer KA3 (166 Th)", price:"$30.00", total:"$61.00", daily:"$3.39", icon:"▦"},
+  {name:"Bitmain Antminer S23", price:"$50.00", total:"$111.00", daily:"$3.70", icon:"▥"},
+  {name:"Bitmain Antminer S21 Pro", price:"$100.00", total:"$350.00", daily:"$11.67", icon:"▤"},
+];
+const translations = {
+  ar:{brandSubtitle:"منصة التعدين السحابي",overview:"نظرة عامة",liveMining:"التعدين المباشر",transactions:"تفاصيل المعاملات",security:"الأمان وكلمة المرور",settings:"إعدادات الحساب",needHelp:"تحتاج مساعدة؟",supportAvailable:"الدعم متاح 24/7",logout:"تسجيل الخروج",welcome:"مرحباً بك من جديد",dashboard:"لوحة التحكم",active:"نشط",availableBalance:"الرصيد المتاح",sinceLastMonth:"منذ الشهر الماضي",hashrate:"قوة التعدين",dailyProfit:"الربح اليومي",totalProfit:"إجمالي الأرباح",deposit:"إيداع",withdraw:"سحب",invite:"دعوة",apps:"التطبيق",contracts:"عقود التعدين",choosePlan:"اختر خطتك",viewAll:"عرض الكل ›",market:"السوق",bestMiners:"أفضل أجهزة التعدين"},
+  en:{brandSubtitle:"Cloud mining platform",overview:"Overview",liveMining:"Live mining",transactions:"Transaction details",security:"Security & password",settings:"Account settings",needHelp:"Need help?",supportAvailable:"Support available 24/7",logout:"Log out",welcome:"Welcome back",dashboard:"Dashboard",active:"Active",availableBalance:"Available balance",sinceLastMonth:"Since last month",hashrate:"Mining hashrate",dailyProfit:"Daily profit",totalProfit:"Total profit",deposit:"Deposit",withdraw:"Withdraw",invite:"Invite",apps:"App",contracts:"Mining contracts",choosePlan:"Choose your plan",viewAll:"View all ›",market:"Market",bestMiners:"Top mining machines"}
+};
+let language="ar";
+const $ = (selector) => document.querySelector(selector);
+function toast(message){const el=$("#toast");el.textContent=message;el.classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>el.classList.remove("show"),2200)}
+function renderMiners(list=miners){$("#marketList").innerHTML=list.map((miner)=>`<article class="market-card"><div class="market-card-top"><div class="market-name">${miner.name}<small class="eyebrow">ASIC MINER</small></div><div class="machine">${miner.icon}</div></div><div class="market-data"><div><small>السعر</small><b class="income">${miner.price}</b></div><div><small>الإجمالي</small><b>${miner.total}</b></div><div><small>يومي</small><b>${miner.daily}</b></div><button class="buy-btn" data-buy="${miner.name}">استثمر</button></div></article>`).join("")}
+function renderPlans(){const featured=miners.slice(0,3);$("#plans").innerHTML=featured.map((miner,index)=>`<article class="plan-card"><div class="plan-title"><div class="plan-image">${miner.icon}</div><div><strong>${miner.name}</strong><small>SHA-256 · ${index===0?"127":"166"} TH/s</small></div></div><div class="plan-price"><small>السعر</small><strong>${miner.price}</strong></div><button class="invest-btn" data-buy="${miner.name}">استثمر الآن</button></article>`).join("")}
+function applyLanguage(){document.documentElement.lang=language;document.documentElement.dir=language==="ar"?"rtl":"ltr";document.querySelectorAll("[data-i18n]").forEach((el)=>el.textContent=translations[language][el.dataset.i18n]);$("#languageToggle").innerHTML=language==="ar"?"English <span>EN</span>":"العربية <span>AR</span>";$("#searchInput").placeholder=language==="ar"?"ابحث عن جهاز...":"Search machines..."}
+document.addEventListener("click",(event)=>{const buy=event.target.closest("[data-buy]");if(buy)toast(`${language==="ar"?"تم اختيار":"Selected"}: ${buy.dataset.buy}`);const action=event.target.closest("[data-action]");if(action)toast(`${language==="ar"?"تم فتح":"Opened"} ${translations[language][action.dataset.action]||action.dataset.action}`);const nav=event.target.closest(".nav-item");if(nav){document.querySelectorAll(".nav-item").forEach((item)=>item.classList.remove("active"));nav.classList.add("active");toast(`${language==="ar"?"تم فتح":"Opened"} ${nav.querySelector("em").textContent}`)}});
+$("#languageToggle").addEventListener("click",()=>{language=language==="ar"?"en":"ar";applyLanguage()});
+$("#searchInput").addEventListener("input",(event)=>{const query=event.target.value.trim().toLowerCase();renderMiners(miners.filter((miner)=>miner.name.toLowerCase().includes(query)))});
+$("#filterButton").addEventListener("click",()=>{renderMiners([...miners].reverse());toast(language==="ar"?"تم تحديث الترتيب":"Market order updated")});
+$("#viewAllButton").addEventListener("click",()=>{renderPlans();toast(language==="ar"?"عرض جميع العقود":"Showing all contracts")});
+$("#notificationsButton").addEventListener("click",()=>toast(language==="ar"?"لا توجد إشعارات جديدة":"No new notifications"));
+$("#logoutButton").addEventListener("click",()=>toast(language==="ar"?"تم تسجيل الخروج التجريبي":"Demo logout complete"));
+renderPlans();renderMiners();applyLanguage();

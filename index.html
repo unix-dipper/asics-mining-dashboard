@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#07101f" />
+    <title>ASICs Mining Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">₿</div>
+          <div>
+            <strong>ASICS MINING</strong>
+            <span data-i18n="brandSubtitle">منصة التعدين السحابي</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="pill-btn ghost" id="languageToggle">العربية <span>AR</span></button>
+          <button class="pill-btn vip">VIP <span>✦</span></button>
+          <button class="icon-btn" id="notificationsButton" aria-label="Notifications">⌁<i></i></button>
+          <div class="avatar">JD</div>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <aside class="sidebar panel">
+          <div class="account-card">
+            <div class="account-heading">
+              <div>
+                <span class="eyebrow">#0505050</span>
+                <strong>JD</strong>
+              </div>
+              <div class="account-avatar">⌁</div>
+            </div>
+            <div class="account-code">KEY DEMO23 <span>UID / 8358-4562-4521</span></div>
+          </div>
+          <nav class="side-nav">
+            <button class="nav-item active" data-view="overview"><span>⌂</span><em data-i18n="overview">نظرة عامة</em></button>
+            <button class="nav-item" data-view="live"><span>◉</span><em data-i18n="liveMining">التعدين المباشر</em></button>
+            <button class="nav-item" data-view="transactions"><span>▤</span><em data-i18n="transactions">تفاصيل المعاملات</em></button>
+            <button class="nav-item" data-view="security"><span>♙</span><em data-i18n="security">الأمان وكلمة المرور</em></button>
+            <button class="nav-item" data-view="settings"><span>⚙</span><em data-i18n="settings">إعدادات الحساب</em></button>
+          </nav>
+          <div class="sidebar-footer">
+            <div class="support-card"><span>?</span><div><b data-i18n="needHelp">تحتاج مساعدة؟</b><small data-i18n="supportAvailable">الدعم متاح 24/7</small></div><strong>›</strong></div>
+            <button class="logout" id="logoutButton"><span>↪</span><span data-i18n="logout">تسجيل الخروج</span></button>
+          </div>
+        </aside>
+
+        <section class="content">
+          <div class="page-heading">
+            <div>
+              <span class="eyebrow" data-i18n="welcome">مرحباً بك من جديد</span>
+              <h1 data-i18n="dashboard">لوحة التحكم</h1>
+            </div>
+            <div class="date-chip">18 نوفمبر 2026 <span>⌄</span></div>
+          </div>
+
+          <div class="stats-grid">
+            <article class="hero-card panel">
+              <div class="card-top"><span class="status live">● <span data-i18n="active">نشط</span></span><span class="muted">BTC/USD</span></div>
+              <div class="balance-label" data-i18n="availableBalance">الرصيد المتاح</div>
+              <div class="balance">$400.00</div>
+              <div class="balance-meta"><span><i class="up">↗</i> +8.4%</span><small data-i18n="sinceLastMonth">منذ الشهر الماضي</small></div>
+              <div class="chart"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><b></b></div>
+            </article>
+            <article class="metric-card panel"><span class="metric-icon purple">◈</span><div><small data-i18n="hashrate">قوة التعدين</small><strong>0.00 <small>TH/s</small></strong></div></article>
+            <article class="metric-card panel"><span class="metric-icon amber">$</span><div><small data-i18n="dailyProfit">الربح اليومي</small><strong>$0.00</strong></div></article>
+            <article class="metric-card panel"><span class="metric-icon cyan">₿</span><div><small data-i18n="totalProfit">إجمالي الأرباح</small><strong>$0.00</strong></div></article>
+          </div>
+
+          <div class="quick-actions">
+            <button class="action-card" data-action="deposit"><span class="action-icon green">＋</span><span data-i18n="deposit">إيداع</span></button>
+            <button class="action-card" data-action="withdraw"><span class="action-icon orange">↑</span><span data-i18n="withdraw">سحب</span></button>
+            <button class="action-card" data-action="invite"><span class="action-icon blue">♧</span><span data-i18n="invite">دعوة</span></button>
+            <button class="action-card" data-action="apps"><span class="action-icon purple">▣</span><span data-i18n="apps">التطبيق</span></button>
+          </div>
+
+          <div class="section-row"><div><span class="eyebrow" data-i18n="contracts">عقود التعدين</span><h2 data-i18n="choosePlan">اختر خطتك</h2></div><button class="text-btn" id="viewAllButton" data-i18n="viewAll">عرض الكل ›</button></div>
+          <div class="plans" id="plans"></div>
+        </section>
+
+        <aside class="right-panel">
+          <div class="search-wrap"><span>⌕</span><input id="searchInput" type="search" placeholder="ابحث عن جهاز..." /></div>
+          <div class="market-header"><div><span class="eyebrow" data-i18n="market">السوق</span><h2 data-i18n="bestMiners">أفضل أجهزة التعدين</h2></div><button class="filter-btn" id="filterButton">≡</button></div>
+          <div class="market-list" id="marketList"></div>
+        </aside>
+      </main>
+      <div class="toast" id="toast"></div>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
