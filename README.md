@@ -10,6 +10,12 @@ A PHP full-stack mining dashboard inspired by the supplied reference image.
 - PHP backend with MySQL/phpMyAdmin support and an automatic SQLite fallback for users, login sessions, products, crypto invoices, purchases, balances, earnings, transactions, and notifications
 - Interactive navigation, notifications, demo login, market search/filtering, plan purchasing, and Arabic/English localization
 - Crypto payment invoice flow with provider webhook confirmation
+- BTC, ETH, TRX, USDT-TRC20, USDT-ERC20, SOL, LTC, and DOGE invoice options
+- Pending and completed deposits/withdrawals in the transactions page
+- Administrator dashboard for users, deposits, withdrawals, and plans
+- Configurable coin wallets and withdrawal requests
+- Referral codes and 5% referral rewards after confirmed purchases
+- Profile editing and JPG/PNG/WebP avatar uploads
 
 ## Run locally
 

@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS `users` (
   `account_id` VARCHAR(191) NOT NULL,
   `uid` VARCHAR(191) NOT NULL,
   `balance` DECIMAL(16,8) NOT NULL DEFAULT 0,
+  `is_admin` TINYINT(1) NOT NULL DEFAULT 0,
+  `avatar` VARCHAR(255) NULL,
+  `bio` VARCHAR(500) NULL,
+  `referral_code` VARCHAR(32) NULL,
+  `referred_by` INT UNSIGNED NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `users_email_unique` (`email`),
@@ -29,6 +34,45 @@ CREATE TABLE IF NOT EXISTS `products` (
   `icon` VARCHAR(32) NOT NULL,
   `active` TINYINT(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `wallet_addresses` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `coin` VARCHAR(16) NOT NULL,
+  `address` VARCHAR(255) NOT NULL,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `wallet_user_coin` (`user_id`, `coin`),
+  CONSTRAINT `wallet_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `withdrawals` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `coin` VARCHAR(16) NOT NULL,
+  `address` VARCHAR(255) NOT NULL,
+  `amount_usd` DECIMAL(16,8) NOT NULL,
+  `amount_coin` DECIMAL(16,8) NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending',
+  `txid` VARCHAR(191) NULL,
+  `admin_note` TEXT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `processed_at` TIMESTAMP NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `withdrawals_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `referral_rewards` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `referrer_id` INT UNSIGNED NOT NULL,
+  `referred_id` INT UNSIGNED NOT NULL,
+  `amount_usd` DECIMAL(16,8) NOT NULL DEFAULT 0,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `referral_referrer_fk` FOREIGN KEY (`referrer_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `referral_referred_fk` FOREIGN KEY (`referred_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `payments` (
@@ -88,9 +132,12 @@ CREATE TABLE IF NOT EXISTS `notifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO `users`
-  (`id`, `name`, `email`, `password_hash`, `account_id`, `uid`, `balance`)
+  (`id`, `name`, `email`, `password_hash`, `account_id`, `uid`, `balance`, `is_admin`, `referral_code`)
 VALUES
-  (1, 'Demo User', 'demo@asics.test', '$2y$12$1S4.glEeydnZZ26Xe.9Ep.UkFQfWYKKBQMukA8VLGTUoKjyIwkOBq', '0505050', '8358-4562-4521', 400);
+  (1, 'Demo User', 'demo@asics.test', '$2y$12$1S4.glEeydnZZ26Xe.9Ep.UkFQfWYKKBQMukA8VLGTUoKjyIwkOBq', '0505050', '8358-4562-4521', 400, 1, 'ASIC-DEMO')
+ON DUPLICATE KEY UPDATE
+  `is_admin` = 1,
+  `referral_code` = COALESCE(`referral_code`, 'ASIC-DEMO');
 
 INSERT INTO `products`
   (`id`, `name`, `price_usd`, `total_return_usd`, `daily_profit_usd`, `hashrate`, `icon`, `active`)
