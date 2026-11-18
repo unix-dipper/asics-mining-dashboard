@@ -275,7 +275,11 @@ VALUES
   (7, 'Avalon Miner A1466', 320.00, 1100.00, 36.67, 410, '◈', 1, 0),
   (8, 'IceRiver AL3', 480.00, 1600.00, 53.33, 520, '✦', 1, 0),
   (9, 'Whatsminer M63S+', 680.00, 2350.00, 78.33, 680, '⬢', 1, 0),
-  (10, 'VIP Daily Miner', 9.99, 5.00, 0.1667, 95, '◆', 1, 1)
+  (10, 'VIP Daily Miner', 9.99, 5.00, 0.1667, 95, '◆', 1, 1),
+  (11, 'VIP Nova Hash 24H', 9.99, 5.00, 0.1667, 110, '✦', 1, 1),
+  (12, 'VIP Quantum Miner', 9.99, 5.00, 0.1667, 125, '⬡', 1, 1),
+  (13, 'VIP Elite Satoshi', 9.99, 5.00, 0.1667, 140, '◈', 1, 1),
+  (14, 'VIP Aurora ASIC', 9.99, 5.00, 0.1667, 155, '◆', 1, 1)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `price_usd` = VALUES(`price_usd`),

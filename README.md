@@ -20,6 +20,9 @@ A PHP full-stack mining dashboard inspired by the supplied reference image.
 - $9.99 VIP subscription, VIP-only machines, 24-hour daily free-machine activation, and a $5 monthly reward after 30 activations
 - Tiered referrals: 5% with 1-4 referrals, 7% with 5-9, and 10% with 10+
 - Administrator account suspension/reactivation, balance adjustments, deposits/earnings summaries, device/IP history, and audit logs
+- Administrator product add, edit, VIP/public classification, activation, and removal controls
+- VIP-only catalog with additional VIP machines and a one-subscription-per-account rule
+- Login IP and user-agent/device logging, with localhost clearly labeled for local development
 
 ## Run locally
 

@@ -18,6 +18,10 @@ try {
         ['IceRiver AL3', 480.00, 1600.00, 53.33, 520, '✦'],
         ['Whatsminer M63S+', 680.00, 2350.00, 78.33, 680, '⬢'],
         ['VIP Daily Miner', 9.99, 5.00, 0.1667, 95, '◆'],
+        ['VIP Nova Hash 24H', 9.99, 5.00, 0.1667, 110, '✦'],
+        ['VIP Quantum Miner', 9.99, 5.00, 0.1667, 125, '⬡'],
+        ['VIP Elite Satoshi', 9.99, 5.00, 0.1667, 140, '◈'],
+        ['VIP Aurora ASIC', 9.99, 5.00, 0.1667, 155, '◆'],
     ];
 
     $findProduct = $pdo->prepare('SELECT id FROM products WHERE name = ?');

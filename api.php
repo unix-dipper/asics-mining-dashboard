@@ -194,6 +194,9 @@ try {
     }
     if ($parts === ['vip', 'status']) {
         $vipActive=!empty($current['vip_until']) && strtotime((string)$current['vip_until'])>time();
+        $subscription=$pdo->prepare("SELECT COUNT(*) FROM payments p JOIN products pr ON pr.id=p.product_id WHERE p.user_id=? AND pr.vip_only=1 AND p.status IN ('pending','paid')");
+        $subscription->execute([(int)$current['id']]);
+        $subscribedOnce=(int)$subscription->fetchColumn()>0;
         $today=(string)date('Y-m-d');
         $claim=$pdo->prepare('SELECT id FROM vip_free_claims WHERE user_id=? AND activation_date=?');
         $claim->execute([(int)$current['id'],$today]);
@@ -203,9 +206,14 @@ try {
         $monthlyCount=(int)$count->fetchColumn();
         $reward=$pdo->prepare('SELECT id FROM vip_month_rewards WHERE user_id=? AND reward_month=?');
         $reward->execute([(int)$current['id'],$month]);
-        response(['active'=>$vipActive,'until'=>$current['vip_until']??null,'price'=>9.99,'claimedToday'=>(bool)$claim->fetch(),'monthlyActivations'=>$monthlyCount,'monthlyReward'=>5,'rewardClaimed'=>(bool)$reward->fetch()]);
+        response(['active'=>$vipActive,'until'=>$current['vip_until']??null,'subscribedOnce'=>$subscribedOnce,'price'=>9.99,'claimedToday'=>(bool)$claim->fetch(),'monthlyActivations'=>$monthlyCount,'monthlyReward'=>5,'rewardClaimed'=>(bool)$reward->fetch()]);
     }
     if ($parts === ['vip', 'subscribe'] && $method === 'POST') {
+        $subscription=$pdo->prepare("SELECT COUNT(*) FROM payments p JOIN products pr ON pr.id=p.product_id WHERE p.user_id=? AND pr.vip_only=1 AND p.status IN ('pending','paid')");
+        $subscription->execute([(int)$current['id']]);
+        if ((int)$subscription->fetchColumn()>0) {
+            response(['error'=>'Your VIP subscription can only be purchased once per account.'],422);
+        }
         $stmt=$pdo->prepare("SELECT * FROM products WHERE name='VIP Daily Miner' OR name LIKE 'VIP Black Diamond%' ORDER BY id LIMIT 1");
         $stmt->execute(); $item=$stmt->fetch();
         if (!$item) {
@@ -417,16 +425,22 @@ try {
         requireAdmin($current);
         if ($method === 'GET') response($pdo->query('SELECT * FROM products ORDER BY id')->fetchAll());
         if ($method === 'POST') {
-            $stmt=$pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active) VALUES (?,?,?,?,?,?,1)');
-            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(string)($body['icon']??'▧')]);
+            $stmt=$pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active,vip_only) VALUES (?,?,?,?,?,?,?,?)');
+            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0)]);
             response(['id'=>(int)$pdo->lastInsertId(),'ok'=>true],201);
         }
         if ($method === 'PATCH') {
             $id=(int)($body['id']??0);
-            $stmt=$pdo->prepare('UPDATE products SET name=?,price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,icon=?,active=? WHERE id=?');
-            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(string)($body['icon']??'▧'),(int)($body['active']??1),$id]);
+            $stmt=$pdo->prepare('UPDATE products SET name=?,price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,icon=?,active=?,vip_only=? WHERE id=?');
+            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0),$id]);
             response(['ok'=>true]);
         }
+    }
+    if (count($parts)===3 && $parts[0]==='admin' && $parts[1]==='products' && $method==='DELETE') {
+        requireAdmin($current);
+        $id=(int)$parts[2];
+        $pdo->prepare('UPDATE products SET active=0 WHERE id=?')->execute([$id]);
+        response(['ok'=>true,'active'=>false]);
     }
     if (count($parts) === 4 && $parts[0] === 'admin' && $parts[1] === 'payments' && $method === 'POST') {
         requireAdmin($current);
