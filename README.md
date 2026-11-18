@@ -31,6 +31,12 @@ To seed or refresh the demo account and products:
 php seed.php
 ```
 
+For a direct SQLite seed, initialize the database first, then run:
+
+```bash
+sqlite3 database.sqlite < seed.sql
+```
+
 ## Crypto payments
 
 Set these environment variables for a real deployment:
