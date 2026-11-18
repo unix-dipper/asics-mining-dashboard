@@ -25,6 +25,12 @@ Demo login: `demo@asics.test` / `demo123`
 
 The SQLite database is created automatically as `database.sqlite`. Products and user ownership are stored in the database; a purchase is created only after the invoice is marked paid by the payment webhook.
 
+To seed or refresh the demo account and products:
+
+```bash
+php seed.php
+```
+
 ## Crypto payments
 
 Set these environment variables for a real deployment:
