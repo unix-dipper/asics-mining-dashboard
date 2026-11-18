@@ -1,19 +1,21 @@
 # ASICs Mining Dashboard
 
-A PHP + SQLite full-stack mining dashboard inspired by the supplied reference image.
+A PHP full-stack mining dashboard inspired by the supplied reference image.
 
 ## Features
 
 - Dark neon dashboard UI with responsive desktop, tablet, and mobile layouts
 - Arabic-first interface with one-click English localization
 - Separate dashboard, live mining, transactions, security, settings, and notifications pages
-- PHP backend with SQLite persistence for users, login sessions, products, crypto invoices, purchases, balances, earnings, transactions, and notifications
+- PHP backend with MySQL/phpMyAdmin support and an automatic SQLite fallback for users, login sessions, products, crypto invoices, purchases, balances, earnings, transactions, and notifications
 - Interactive navigation, notifications, demo login, market search/filtering, plan purchasing, and Arabic/English localization
 - Crypto payment invoice flow with provider webhook confirmation
 
 ## Run locally
 
-Requirements: PHP 8.1+ with the `pdo_sqlite` extension.
+For zero setup: PHP 8.1+ with `pdo_sqlite`.
+
+For XAMPP/phpMyAdmin: PHP 8.1+, `pdo_mysql`, and an `asics_mining` database or import `seed.sql` directly.
 
 ```bash
 php -S localhost:4173
@@ -23,7 +25,7 @@ Then open `http://localhost:4173`.
 
 Demo login: `demo@asics.test` / `demo123`
 
-The SQLite database is created automatically as `database.sqlite`. Products and user ownership are stored in the database; a purchase is created only after the invoice is marked paid by the payment webhook.
+The SQLite database is created automatically as `database.sqlite`. For MySQL, `seed.sql` creates the `asics_mining` database and all tables. Products and user ownership are stored in the database; a purchase is created only after the invoice is marked paid by the payment webhook.
 
 To seed or refresh the demo account and products:
 
@@ -31,7 +33,7 @@ To seed or refresh the demo account and products:
 php seed.php
 ```
 
-For a direct SQLite seed, initialize the database first, then run:
+For phpMyAdmin, import `seed.sql`. For a direct SQLite seed, initialize the database first, then run:
 
 ```bash
 sqlite3 database.sqlite < seed.sql
