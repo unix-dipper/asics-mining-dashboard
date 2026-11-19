@@ -49,6 +49,7 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         $pdo->exec('CREATE TABLE IF NOT EXISTS vip_month_rewards (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, reward_month CHAR(7) NOT NULL, amount DECIMAL(16,8) NOT NULL DEFAULT 5, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY vip_month (user_id, reward_month), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS account_audit (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NULL, actor_id INT UNSIGNED NULL, action VARCHAR(191) NOT NULL, ip_address VARCHAR(45) NULL, user_agent VARCHAR(500) NULL, details TEXT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS login_devices (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, ip_address VARCHAR(45) NULL, user_agent VARCHAR(500) NULL, first_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY login_device (user_id, ip_address, user_agent), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS payment_events (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, payment_id INT UNSIGNED NOT NULL, event_type VARCHAR(32) NOT NULL, ip_address VARCHAR(45) NULL, user_agent VARCHAR(500) NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE) ENGINE=InnoDB');
     } else {
         $pdo->exec('PRAGMA foreign_keys = ON');
         $pdo->exec('PRAGMA journal_mode = WAL');
@@ -67,6 +68,7 @@ function initializeDatabase(PDO $pdo, string $driver): void {
             CREATE TABLE IF NOT EXISTS vip_month_rewards (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, reward_month TEXT NOT NULL, amount REAL NOT NULL DEFAULT 5, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, reward_month), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
             CREATE TABLE IF NOT EXISTS account_audit (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, actor_id INTEGER, action TEXT NOT NULL, ip_address TEXT, user_agent TEXT, details TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS login_devices (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, ip_address TEXT, user_agent TEXT, first_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, ip_address, user_agent), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
+            CREATE TABLE IF NOT EXISTS payment_events (id INTEGER PRIMARY KEY AUTOINCREMENT, payment_id INTEGER NOT NULL, event_type TEXT NOT NULL, ip_address TEXT, user_agent TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE);
         ');
     }
 
@@ -81,6 +83,8 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         ensureMySqlColumn($pdo, 'users', 'admin_note', 'TEXT NULL');
         ensureMySqlColumn($pdo, 'products', 'vip_only', 'TINYINT(1) NOT NULL DEFAULT 0');
         ensureMySqlColumn($pdo, 'purchases', 'expires_at', 'TIMESTAMP NULL');
+        ensureMySqlColumn($pdo, 'payments', 'confirmed_at', 'TIMESTAMP NULL');
+        ensureMySqlColumn($pdo, 'payments', 'cancelled_at', 'TIMESTAMP NULL');
     } else {
         ensureSqliteColumn($pdo, 'users', 'is_admin', 'INTEGER NOT NULL DEFAULT 0');
         ensureSqliteColumn($pdo, 'users', 'avatar', 'TEXT');
@@ -92,6 +96,8 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         ensureSqliteColumn($pdo, 'users', 'admin_note', 'TEXT');
         ensureSqliteColumn($pdo, 'products', 'vip_only', 'INTEGER NOT NULL DEFAULT 0');
         ensureSqliteColumn($pdo, 'purchases', 'expires_at', 'TEXT');
+        ensureSqliteColumn($pdo, 'payments', 'confirmed_at', 'TEXT');
+        ensureSqliteColumn($pdo, 'payments', 'cancelled_at', 'TEXT');
     }
 
     $catalog = [

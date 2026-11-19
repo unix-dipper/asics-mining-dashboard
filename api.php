@@ -23,6 +23,7 @@ function user(): ?array {
 function requireUser(): array {
     $current = user();
     if (!$current) response(['error' => 'Authentication required'], 401);
+    recordLoginDevice($current);
     return $current;
 }
 function publicUser(array $row): array {
@@ -54,14 +55,28 @@ function recordLoginDevice(array $user): void {
     } else {
         $pdo->prepare('INSERT INTO login_devices (user_id,ip_address,user_agent) VALUES (?,?,?)')->execute([(int)$user['id'],$ip,$agent]);
     }
-    function referralRate(PDO $pdo, int $referrerId): float {
-        $stmt=$pdo->prepare('SELECT COUNT(*) FROM users WHERE referred_by=?');
-        $stmt->execute([$referrerId]);
-        $count=(int)$stmt->fetchColumn();
-        if ($count >= 10) return 0.10;
-        if ($count >= 5) return 0.07;
-        return 0.05;
+}
+function referralRate(PDO $pdo, int $referrerId): float {
+    $stmt=$pdo->prepare('SELECT COUNT(*) FROM users WHERE referred_by=?');
+    $stmt->execute([$referrerId]);
+    $count=(int)$stmt->fetchColumn();
+    if ($count >= 10) return 0.10;
+    if ($count >= 5) return 0.07;
+    return 0.05;
+}
+function sendTelegram(string $message): bool {
+    $token=config('TELEGRAM_BOT_TOKEN'); $chatId=config('TELEGRAM_CHAT_ID');
+    if ($token==='' || $chatId==='') return false;
+    $url='https://api.telegram.org/bot'.$token.'/sendMessage';
+    $payload=['chat_id'=>$chatId,'text'=>$message,'parse_mode'=>'HTML','disable_web_page_preview'=>true];
+    if (function_exists('curl_init')) {
+        $ch=curl_init($url);
+        curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>http_build_query($payload),CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>8]);
+        $result=curl_exec($ch); curl_close($ch);
+        $data=json_decode((string)$result,true);
+        return is_array($data)&&($data['ok']??false);
     }
+    return false;
 }
 function pathParts(): array {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
@@ -102,6 +117,7 @@ try {
         $name=trim((string)($body['name']??'')); $email=trim((string)($body['email']??'')); $message=trim((string)($body['message']??''));
         if ($name==='' || !filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($message)<5) response(['error'=>'Please provide your name, a valid email and a message'],422);
         $pdo->prepare('INSERT INTO contact_messages (name,email,message) VALUES (?,?,?)')->execute([$name,$email,$message]);
+        sendTelegram("📩 <b>New contact message</b>\nName: ".htmlspecialchars($name)."\nEmail: ".htmlspecialchars($email)."\nMessage: ".htmlspecialchars($message));
         response(['ok'=>true],201);
     }
     if ($parts === ['auth', 'login'] && $method === 'POST') {
@@ -325,9 +341,9 @@ try {
         $stmt=$pdo->prepare('SELECT id,type,amount,status,reference,created_at date FROM transactions WHERE user_id=? ORDER BY id DESC');
         $stmt->execute([$current['id']]);
         foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'TX-'.$row['id'],'type'=>$row['type'],'amount'=>(float)$row['amount'],'status'=>$row['status'],'reference'=>$row['reference'],'coin'=>null,'date'=>$row['date']];
-        $stmt=$pdo->prepare('SELECT id,invoice_code,network,amount_usd,status,txid,created_at FROM payments WHERE user_id=? ORDER BY id DESC');
+        $stmt=$pdo->prepare('SELECT id,invoice_code,network,amount_usd,status,txid,created_at,confirmed_at,paid_at,cancelled_at FROM payments WHERE user_id=? ORDER BY id DESC');
         $stmt->execute([$current['id']]);
-        foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'PAY-'.$row['id'],'type'=>'Crypto deposit','amount'=>(float)$row['amount_usd'],'status'=>$row['status'],'reference'=>$row['invoice_code'],'coin'=>$row['network'],'date'=>$row['created_at']];
+        foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'PAY-'.$row['id'],'type'=>'Crypto deposit','amount'=>(float)$row['amount_usd'],'status'=>$row['status'],'reference'=>$row['invoice_code'],'coin'=>$row['network'],'date'=>$row['created_at'],'confirmedAt'=>$row['confirmed_at']??null,'paidAt'=>$row['paid_at']??null,'cancelledAt'=>$row['cancelled_at']??null];
         $stmt=$pdo->prepare('SELECT id,coin,address,amount_usd,status,txid,created_at FROM withdrawals WHERE user_id=? ORDER BY id DESC');
         $stmt->execute([$current['id']]);
         foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'WD-'.$row['id'],'type'=>'Crypto withdrawal','amount'=>(float)$row['amount_usd'],'status'=>$row['status'],'reference'=>$row['txid'] ?: 'WD-'.$row['id'],'coin'=>$row['coin'],'date'=>$row['created_at']];
@@ -352,6 +368,19 @@ try {
     }
     if (count($parts) === 3 && $parts[0] === 'payments' && $parts[1] === 'invoice' && $method === 'GET') {
         $stmt=$pdo->prepare('SELECT pay.*, p.name product_name FROM payments pay JOIN products p ON p.id=pay.product_id WHERE pay.id=? AND pay.user_id=?'); $stmt->execute([(int)$parts[2],$current['id']]); $payment=$stmt->fetch(); if(!$payment) response(['error'=>'Invoice not found'],404); response($payment);
+    }
+    if (count($parts)===3 && $parts[0]==='payments' && $parts[1]==='confirm' && $method==='POST') {
+        $paymentId=(int)$parts[2];
+        $stmt=$pdo->prepare('SELECT pay.*,p.name AS product_name,u.name AS user_name,u.email AS user_email FROM payments pay JOIN products p ON p.id=pay.product_id JOIN users u ON u.id=pay.user_id WHERE pay.id=? AND pay.user_id=?');
+        $stmt->execute([$paymentId,$current['id']]); $payment=$stmt->fetch();
+        if(!$payment) response(['error'=>'Invoice not found'],404);
+        if($payment['status']!=='pending') response(['error'=>'Payment is no longer pending'],422);
+        $pdo->prepare('UPDATE payments SET status="review",confirmed_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$paymentId]);
+        $pdo->prepare('UPDATE transactions SET status="pending review" WHERE user_id=? AND reference=?')->execute([$current['id'],$payment['invoice_code']]);
+        $pdo->prepare('INSERT INTO payment_events (payment_id,event_type,ip_address,user_agent) VALUES (?,?,?,?)')->execute([$paymentId,'user_confirmed',clientIp(),substr((string)($_SERVER['HTTP_USER_AGENT']??'unknown'),0,500)]);
+        $pdo->prepare('INSERT INTO notifications (user_id,title,message) VALUES (?,?,?)')->execute([$current['id'],'Payment confirmation sent','The administrator has been notified to verify your deposit.']);
+        sendTelegram("💳 <b>Payment confirmation</b>\nUser: ".htmlspecialchars((string)$payment['user_name'])." (" . htmlspecialchars((string)$payment['user_email']).")\nInvoice: ".$payment['invoice_code']."\nProduct: ".htmlspecialchars((string)$payment['product_name'])."\nNetwork: ".$payment['network']."\nAmount: $".number_format((float)$payment['amount_usd'],2)."\nIP: ".htmlspecialchars(clientIp()));
+        response(['ok'=>true,'status'=>'review','confirmedAt'=>date('Y-m-d H:i:s')]);
     }
     if ($parts === ['admin', 'messages']) {
         requireAdmin($current);
@@ -413,8 +442,14 @@ try {
     }
     if ($parts === ['admin', 'payments']) {
         requireAdmin($current);
-        $stmt=$pdo->query('SELECT p.*,u.name,u.email,pr.name AS product_name FROM payments p JOIN users u ON u.id=p.user_id JOIN products pr ON pr.id=p.product_id ORDER BY p.id DESC');
-        response($stmt->fetchAll());
+        $stmt=$pdo->query('SELECT p.*,u.name,u.email,pr.name AS product_name,(SELECT event_type FROM payment_events pe WHERE pe.payment_id=p.id ORDER BY pe.id DESC LIMIT 1) AS latest_event FROM payments p JOIN users u ON u.id=p.user_id JOIN products pr ON pr.id=p.product_id ORDER BY p.id DESC');
+        $rows=$stmt->fetchAll();
+        foreach($rows as &$row){
+            $events=$pdo->prepare('SELECT event_type,ip_address,user_agent,created_at FROM payment_events WHERE payment_id=? ORDER BY id DESC');
+            $events->execute([(int)$row['id']]);
+            $row['events']=$events->fetchAll();
+        }
+        response($rows);
     }
     if ($parts === ['admin', 'withdrawals']) {
         requireAdmin($current);
@@ -447,10 +482,11 @@ try {
         $paymentId=(int)$parts[2]; $action=$parts[3];
         $stmt=$pdo->prepare('SELECT * FROM payments WHERE id=?'); $stmt->execute([$paymentId]); $payment=$stmt->fetch();
         if (!$payment) response(['error'=>'Payment not found'],404);
-        if ($payment['status'] !== 'pending') response(['error'=>'Payment has already been processed'],422);
+        if (!in_array($payment['status'], ['pending','review'], true)) response(['error'=>'Payment has already been processed'],422);
         if ($action === 'confirm') {
             $pdo->beginTransaction();
-            $pdo->prepare('UPDATE payments SET status="paid",txid=?,paid_at=CURRENT_TIMESTAMP WHERE id=?')->execute([(string)($body['txid']??''),$paymentId]);
+            $pdo->prepare('UPDATE payments SET status="paid",txid=?,paid_at=CURRENT_TIMESTAMP,confirmed_at=COALESCE(confirmed_at,CURRENT_TIMESTAMP) WHERE id=?')->execute([(string)($body['txid']??''),$paymentId]);
+            $pdo->prepare('INSERT INTO payment_events (payment_id,event_type,ip_address,user_agent) VALUES (?,?,?,?)')->execute([$paymentId,'confirmed',clientIp(),substr((string)($_SERVER['HTTP_USER_AGENT']??''),0,500)]);
             $product=$pdo->prepare('SELECT vip_only FROM products WHERE id=?'); $product->execute([$payment['product_id']]); $vipOnly=(int)$product->fetchColumn();
             if ($vipOnly) {
                 $user=$pdo->prepare('SELECT vip_until FROM users WHERE id=?'); $user->execute([$payment['user_id']]); $until=$user->fetchColumn();
@@ -473,8 +509,9 @@ try {
             response(['ok'=>true,'status'=>'paid']);
         }
         if ($action === 'cancel') {
-            $pdo->prepare('UPDATE payments SET status="cancelled",txid=? WHERE id=?')->execute([(string)($body['txid']??''),$paymentId]);
+            $pdo->prepare('UPDATE payments SET status="cancelled",txid=?,cancelled_at=CURRENT_TIMESTAMP WHERE id=?')->execute([(string)($body['txid']??''),$paymentId]);
             $pdo->prepare('UPDATE transactions SET status="cancelled" WHERE user_id=? AND reference=?')->execute([$payment['user_id'],$payment['invoice_code']]);
+            $pdo->prepare('INSERT INTO payment_events (payment_id,event_type,ip_address,user_agent) VALUES (?,?,?,?)')->execute([$paymentId,'cancelled',clientIp(),substr((string)($_SERVER['HTTP_USER_AGENT']??''),0,500)]);
             $pdo->prepare('INSERT INTO notifications (user_id,title,message) VALUES (?,?,?)')->execute([$payment['user_id'],'Deposit cancelled','Your pending deposit was cancelled by the administrator.']);
             response(['ok'=>true,'status'=>'cancelled']);
         }

@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS `withdrawals` (
   `amount_coin` DECIMAL(16,8) NOT NULL,
   `status` VARCHAR(32) NOT NULL DEFAULT 'pending',
   `txid` VARCHAR(191) NULL,
+  `confirmed_at` TIMESTAMP NULL,
+  `cancelled_at` TIMESTAMP NULL,
   `admin_note` TEXT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `processed_at` TIMESTAMP NULL,
@@ -159,11 +161,25 @@ CREATE TABLE IF NOT EXISTS `payments` (
   `txid` VARCHAR(191) NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `paid_at` TIMESTAMP NULL,
+  `confirmed_at` TIMESTAMP NULL,
+  `cancelled_at` TIMESTAMP NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `payments_invoice_code_unique` (`invoice_code`),
   CONSTRAINT `payments_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `payments_product_fk` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `payments` ADD COLUMN `confirmed_at` TIMESTAMP NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'confirmed_at');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `payments` ADD COLUMN `cancelled_at` TIMESTAMP NULL',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'payments' AND COLUMN_NAME = 'cancelled_at');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
 
 CREATE TABLE IF NOT EXISTS `purchases` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -261,6 +277,17 @@ CREATE TABLE IF NOT EXISTS `account_audit` (
   `details` TEXT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `payment_events` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `payment_id` INT UNSIGNED NOT NULL,
+  `event_type` VARCHAR(32) NOT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(500) NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `payment_event_payment_fk` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `products`

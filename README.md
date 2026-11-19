@@ -80,5 +80,14 @@ export PAYMENT_WEBHOOK_SECRET="shared webhook secret"
 export APP_DEBUG="false"
 ```
 
+For instant Telegram alerts, set:
+
+```bash
+export TELEGRAM_BOT_TOKEN="your-bot-token"
+export TELEGRAM_CHAT_ID="your-chat-or-channel-id"
+```
+
+Telegram notifications are sent for contact submissions and for deposits when a user clicks "I have sent the payment". Alerts are optional; the database retains contact messages and payment confirmation events without Telegram.
+
 Create an invoice with `POST /api.php/payments/invoice`, then configure BTCPay Server, Coinbase Commerce, or another crypto provider to call `POST /api.php/payments/webhook` with JSON containing `invoiceCode` and `txid`. The webhook creates the owned mining product and transaction atomically. The default address is intentionally a demo placeholder and must be replaced before accepting funds.
 Responsive mining dashboard inspired by the provided reference image, with Arabic and English localization.
