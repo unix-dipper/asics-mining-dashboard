@@ -9,7 +9,7 @@ const toast = (message) => { const el = $("#toast"); el.textContent = message; e
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" }[char]));
 async function api(path, options = {}) {
   const headers = { "Content-Type":"application/json", ...(options.headers || {}) };
-  const response = await fetch(`/api.php${path}`, { ...options, headers });
+  const response=await fetch(`api.php/${String(path).replace(/^\/+/, "")}`, { ...options, headers });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error || "Request failed");
   return body;
@@ -30,11 +30,13 @@ function metric(icon, color, label, value) { return `<article class="metric-card
 function contractCard(contract) { return `<article class="plan-card"><div class="plan-title"><div class="plan-image">${esc(contract.icon)}</div><div><strong>${esc(contract.name)}</strong><small>SHA-256 · ${contract.hashrate} TH/s</small></div></div><div class="plan-price"><small>${tr("price")}</small><strong>$${contract.price.toFixed(2)}</strong></div><button class="invest-btn" data-buy="${contract.id}">${tr("invest")}</button></article>`; }
 function publicPage() {
   const products=state.data.publicProducts || [];
-  return `<header class="public-header"><a class="public-brand" href="#" data-public="home"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>Digital mining infrastructure</span></div></a><nav class="public-nav"><a href="#home" data-public="home">Home</a><a href="#products" data-public="products">Products</a><a href="#about" data-public="about">Who we are</a><a href="#contact" data-public="contact">Contact</a></nav><button class="public-login" data-public-action="login">Sign in</button></header>
+  const vipPlans=state.data.publicVip || [];
+  return `<header class="public-header"><a class="public-brand" href="#" data-public="home"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong><span>Digital mining infrastructure</span></div></a><nav class="public-nav"><a href="#home" data-public="home">Home</a><a href="#products" data-public="products">Products</a><a href="#vip" data-public="vip">VIP plans</a><a href="#about" data-public="about">Who we are</a><a href="#contact" data-public="contact">Contact</a></nav><button class="public-login" data-public-action="login">Sign in</button></header>
   <main id="home" class="public-main">
     <section class="hero-section"><div class="hero-copy"><span class="public-kicker">Cloud infrastructure, professionally managed</span><h1>Mining power.<br><em>Built for the future.</em></h1><p>Access institutional-grade mining hardware through transparent crypto payments and real-time account reporting.</p><div class="hero-actions"><button class="primary-cta" data-public-action="register">Start mining <span>→</span></button><a class="secondary-cta" href="#products" data-public="products">Explore plans</a></div><div class="hero-trust"><span><b>99.9%</b> uptime</span><span><b>8</b> crypto networks</span><span><b>24/7</b> monitoring</span></div></div>
     <div class="rig-stage" aria-label="Animated mining rig"><div class="rig-glow"></div><div class="rig-fan fan-left"><i></i><i></i><i></i><i></i></div><div class="rig-fan fan-right"><i></i><i></i><i></i><i></i></div><div class="rig-core"><div class="rig-board"></div><div class="rig-lights"><i></i><i></i><i></i><i></i><i></i></div></div><div class="rig-data"><span>HASH RATE</span><strong>${products.length ? "127.4" : "127.4"} TH/s</strong><em>● MINING</em></div></div></section>
     <section id="products" class="public-products"><div class="public-section-heading"><div><span>Mining plans</span><h2>Choose your computing power</h2></div><p>Fixed contracts. Transparent yields. No hidden setup fees.</p></div><div class="public-product-grid">${products.map((product)=>`<article class="public-product-card"><div class="public-product-art"><img src="${esc(product.image)}" alt="${esc(product.name)} illustration" /></div><div class="public-product-body"><span class="product-network">SHA-256</span><h3>${esc(product.name)}</h3><div class="product-spec"><div><small>Hashrate</small><strong>${product.hashrate} TH/s</strong></div><div><small>Daily estimate</small><strong>$${Number(product.daily).toFixed(2)}</strong></div></div><div class="public-product-bottom"><div><small>Starting from</small><strong>$${Number(product.price).toFixed(2)}</strong></div><button data-public-action="register">Get started</button></div></div></article>`).join("")}</div></section>
+    <section id="vip" class="vip-marketing"><div class="public-section-heading"><div><span>VIP access</span><h2>More power. Better value.</h2></div><p>Every VIP tier includes a daily 24-hour machine activation and a $5 monthly reward after 30 completed activations.</p></div><div class="vip-plan-grid">${vipPlans.map((plan,index)=>`<article class="vip-plan-card ${index===1?"featured":""}"><span class="vip-plan-badge">${index===1?"Best value":"VIP tier"}</span><h3>${esc(plan.name.replace(/^VIP\\s+/,""))}</h3><strong class="vip-plan-price">$${Number(plan.price).toFixed(2)}<small>/ 30 days</small></strong><p>${Number(plan.hashrate).toFixed(0)} TH/s included, daily activation, and transparent account tracking.</p><button data-public-action="register">Choose this tier</button></article>`).join("")}</div></section>
     <section id="about" class="about-section"><div class="about-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="about-node">ASIC</div></div><div class="about-copy"><span>Who we are</span><h2>Infrastructure you can trust.</h2><p>ASICS Mining connects customers with purpose-built cryptocurrency mining hardware, continuous monitoring, and a clear account experience.</p><div class="about-values"><div><b>01</b><strong>Transparency</strong><small>Clear pricing and visible transaction history.</small></div><div><b>02</b><strong>Security</strong><small>Protected accounts and administrator review.</small></div><div><b>03</b><strong>Support</strong><small>Responsive help across the full customer journey.</small></div></div></div></section>
     <section id="contact" class="contact-section"><div><span>Contact</span><h2>Let’s build your mining plan.</h2><p>Talk to our team about capacity, referrals, or account support.</p></div><form id="contactForm" class="contact-form"><div><label>Name<input name="name" required /></label><label>Email<input name="email" type="email" required /></label></div><label>Message<textarea name="message" rows="5" required></textarea></label><button type="submit">Send message <span>→</span></button></form></section>
   </main><footer class="public-footer"><div class="public-brand"><div class="brand-mark">₿</div><div><strong>ASICS MINING</strong></div></div><p>Digital mining infrastructure.</p><span>© ${new Date().getFullYear()} ASICS Mining</span></footer>`;
@@ -65,13 +67,13 @@ function adminPage() {
   const users=admin.users || [], payments=admin.payments || [], withdrawals=admin.withdrawals || [], products=admin.products || [];
   return `${cardHeading("Administration","Admin control panel")}<div class="stats-grid"><article class="metric-card panel"><span class="metric-icon purple">♟</span><div><small>Users</small><strong>${overview.users || 0}</strong></div></article><article class="metric-card panel"><span class="metric-icon amber">$</span><div><small>Pending deposits</small><strong>$${Number(overview.pendingPayments||0).toFixed(2)}</strong></div></article><article class="metric-card panel"><span class="metric-icon cyan">↗</span><div><small>Pending withdrawals</small><strong>$${Number(overview.pendingWithdrawals||0).toFixed(2)}</strong></div></article></div>
   <div class="data-panel panel"><h2>Users</h2><div class="table-wrap"><table><thead><tr><th>User</th><th>Email</th><th>Deposited</th><th>Balance</th><th>Owned plans</th><th>Role</th></tr></thead><tbody>${users.map((row)=>`<tr><td>${esc(row.name)}</td><td>${esc(row.email)}</td><td>$${Number(row.deposited).toFixed(2)}</td><td>$${Number(row.balance).toFixed(2)}</td><td>${row.owned}</td><td>${row.isAdmin?"Admin":"User"}</td></tr>`).join("")}</tbody></table></div></div>
-  <div class="data-panel panel"><h2>Pending deposits</h2><div class="table-wrap"><table><thead><tr><th>User</th><th>Product</th><th>Coin</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${payments.map((row)=>`<tr><td>${esc(row.name)}</td><td>${esc(row.product_name)}</td><td>${esc(row.network)}</td><td>$${Number(row.amount_usd).toFixed(2)}</td><td>${esc(row.status)}</td><td>${row.status==="pending"?`<button class="mini-action confirm" data-admin-payment="${row.id}" data-action-admin="confirm">Confirm</button><button class="mini-action cancel" data-admin-payment="${row.id}" data-action-admin="cancel">Cancel</button>`:"—"}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="data-panel panel"><h2>Pending deposits</h2><div class="table-wrap"><table><thead><tr><th>User</th><th>Product</th><th>Coin</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody>${payments.map((row)=>`<tr><td>${esc(row.name)}</td><td>${esc(row.product_name)}</td><td>${esc(row.network)}</td><td>$${Number(row.amount_usd).toFixed(2)}</td><td>${esc(row.status)}</td><td>${row.status==="pending"||row.status==="review"?`<button class="mini-action confirm" data-admin-payment="${row.id}" data-action-admin="confirm">Confirm</button><button class="mini-action cancel" data-admin-payment="${row.id}" data-action-admin="cancel">Cancel</button>`:"—"}</td></tr>`).join("")}</tbody></table></div></div>
   <div class="data-panel panel"><h2>Withdrawals</h2><div class="table-wrap"><table><thead><tr><th>User</th><th>Coin</th><th>USD</th><th>Address</th><th>Status</th><th>Actions</th></tr></thead><tbody>${withdrawals.map((row)=>`<tr><td>${esc(row.name)}</td><td>${esc(row.coin)}</td><td>$${Number(row.amount_usd).toFixed(2)}</td><td class="address-cell">${esc(row.address)}</td><td>${esc(row.status)}</td><td>${row.status==="pending"?`<button class="mini-action confirm" data-admin-withdrawal="${row.id}" data-action-admin="approve">Approve</button><button class="mini-action cancel" data-admin-withdrawal="${row.id}" data-action-admin="reject">Reject</button>`:"—"}</td></tr>`).join("")}</tbody></table></div></div>
   <div class="data-panel panel"><h2>Available plans</h2><div class="table-wrap"><table><thead><tr><th>Name</th><th>Price</th><th>Daily</th><th>Hashrate</th><th>Status</th></tr></thead><tbody>${products.map((row)=>`<tr><td>${esc(row.name)}</td><td>$${Number(row.price_usd).toFixed(2)}</td><td>$${Number(row.daily_profit_usd).toFixed(2)}</td><td>${Number(row.hashrate).toFixed(2)} TH/s</td><td>${row.active?"Active":"Inactive"}</td></tr>`).join("")}</tbody></table></div></div>`;
 }
 function pageContent() {
   if (state.route === "live") return `${cardHeading(tr("contracts"), tr("liveTitle"))}<div class="live-rig-panel panel"><div class="live-rig-status"><span class="status live">● LIVE</span><b>${(state.data.dashboard?.hashrate || 0).toFixed(2)} TH/s</b></div><div class="live-rig"><div class="live-rig-fan fan-a"></div><div class="live-rig-fan fan-b"></div><div class="live-rig-core"><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="live-rig-stats"><span>Uptime<b>99.9%</b></span><span>Temperature<b>58°C</b></span><span>Active rigs<b>${(state.data.contracts || []).length}</b></span></div></div><div class="page-grid">${(state.data.contracts || []).map(contractCard).join("")}</div><div class="data-panel panel"><h2>${tr("hashrate")}</h2><div class="progress-list">${(state.data.contracts || []).map((item) => `<div class="progress-row"><span>${esc(item.name)}</span><b>${item.hashrate} TH/s</b><div><i style="width:${Math.min(item.hashrate / 2, 100)}%"></i></div></div>`).join("")}</div></div>`;
-  if (state.route === "transactions") return `${cardHeading(tr("transactions"), tr("transactionsTitle"))}<div class="data-panel panel"><div class="table-wrap"><table><thead><tr><th>Reference</th><th>Created</th><th>Confirmed</th><th>Paid</th><th>Cancelled</th><th>Type</th><th>Coin</th><th>Amount</th><th>Status</th></tr></thead><tbody>${(state.data.transactions || []).map((item) => `<tr><td>${esc(item.reference)}</td><td>${esc(item.date||"—")}</td><td>${esc(item.confirmedAt||"—")}</td><td>${esc(item.paidAt||"—")}</td><td>${esc(item.cancelledAt||"—")}</td><td>${esc(item.type)}</td><td>${esc(item.coin || "USD")}</td><td>$${Math.abs(item.amount).toFixed(2)}</td><td><span class="status ${item.status === "completed" || item.status === "paid" ? "live" : item.status === "cancelled" ? "cancelled" : "pending"}">${esc(item.status)}</span></td></tr>`).join("")}</tbody></table></div></div>`;
+  if (state.route === "transactions") return `${cardHeading(tr("transactions"), tr("transactionsTitle"))}<div class="data-panel panel"><div class="table-wrap"><table><thead><tr><th>Reference</th><th>Created</th><th>Confirmed</th><th>Paid</th><th>Cancelled</th><th>Type</th><th>Coin</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>${(state.data.transactions || []).map((item) => `<tr><td>${esc(item.reference)}</td><td>${esc(item.date||"—")}</td><td>${esc(item.confirmedAt||"—")}</td><td>${esc(item.paidAt||"—")}</td><td>${esc(item.cancelledAt||"—")}</td><td>${esc(item.type)}</td><td>${esc(item.coin || "USD")}</td><td>$${Math.abs(item.amount).toFixed(2)}</td><td><span class="status ${item.status === "completed" || item.status === "paid" ? "live" : item.status === "cancelled" ? "cancelled" : "pending"}">${esc(item.status)}</span></td><td>${item.paymentId && item.status==="pending" ? `<button class="mini-action confirm" data-confirm-transaction="${item.paymentId}">I sent payment</button>` : "—"}</td></tr>`).join("")}</tbody></table></div></div>`;
   if (state.route === "security") return `${cardHeading(tr("security"), tr("securityTitle"))}<div class="form-panel panel"><form id="passwordForm"><label>${tr("password")}<input name="currentPassword" type="password" required /></label><label>New password<input name="newPassword" type="password" minlength="6" required /></label><label>Confirm password<input name="confirmPassword" type="password" minlength="6" required /></label><button class="invest-btn" type="submit">${tr("save")}</button></form></div>`;
   if (state.route === "settings") return settingsPage();
   if (state.route === "referrals") return referralPage();
@@ -102,7 +104,33 @@ function bindPublicEvents() {
   $("#contactForm")?.addEventListener("submit",async(event)=>{
     event.preventDefault();
     const data=Object.fromEntries(new FormData(event.currentTarget));
-    try{await api("/contact",{method:"POST",body:JSON.stringify(data)});toast("Message sent");event.currentTarget.reset();}catch(error){toast(error.message);}
+    try{await api("contact",{method:"POST",body:JSON.stringify(data)});toast("Message sent");event.currentTarget.reset();}catch(error){toast(error.message);}
+  });
+}
+async function confirmTransaction(event) {
+  const button=event.currentTarget;
+  button.disabled=true;
+  try {
+    await api(`/payments/confirm/${button.dataset.confirmTransaction}`,{method:"POST",body:"{}"});
+    toast("Payment confirmation sent to the administrator");
+    await loadData();
+  } catch(error) {
+    button.disabled=false;
+    toast(error.message);
+  }
+}
+function showSupportModal() {
+  const modal=document.createElement("div");
+  modal.className="modal-backdrop";
+  modal.innerHTML=`<div class="invoice-modal panel support-modal"><button class="modal-close">×</button><span class="eyebrow">Support</span><h2>How can we help?</h2><form id="supportForm" class="support-form"><label>Name<input name="name" value="${esc(state.user?.name||"")}" required /></label><label>Email<input name="email" type="email" value="${esc(state.user?.email||"")}" required /></label><label>Message<textarea name="message" rows="5" required></textarea></label><button class="invest-btn" type="submit">Send message</button></form></div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener("click",async(event)=>{
+    if(event.target===modal||event.target.closest(".modal-close")) return modal.remove();
+    const form=event.target.closest("#supportForm");
+    if(!form) return;
+    event.preventDefault();
+    try { await api("contact",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(form)))}); modal.remove(); toast("Message sent to support"); }
+    catch(error) { toast(error.message); }
   });
 }
 function bindLoginEvents() {
@@ -153,6 +181,8 @@ function bindEvents() {
   $("#withdrawalForm")?.addEventListener("submit",requestWithdrawal);
   $("#copyReferral")?.addEventListener("click",copyReferral);
   document.querySelectorAll("[data-action-admin]").forEach((button)=>button.addEventListener("click",adminAction));
+  document.querySelector(".support-card")?.addEventListener("click",showSupportModal);
+  document.querySelectorAll("[data-confirm-transaction]").forEach((button)=>button.addEventListener("click",confirmTransaction));
 }
 async function handleAction(action) {
   if (action === "language") { state.language = state.language === "ar" ? "en" : "ar"; render(); return; }
@@ -167,14 +197,17 @@ async function handleAction(action) {
 }
 function showVipModal(){
   const vip=state.data.vip || {active:false,claimedToday:false,monthlyActivations:0,monthlyReward:5,rewardClaimed:false};
+  const plans=state.data.publicVip || [];
   const modal=document.createElement("div");
   modal.className="modal-backdrop";
-  modal.innerHTML=`<div class="invoice-modal panel vip-modal"><button class="modal-close">×</button><span class="eyebrow">VIP Mining</span><h2>${vip.active?"Your VIP membership":"Unlock VIP Mining"}</h2><div class="vip-benefits"><div><strong>$9.99</strong><span>30-day VIP access</span></div><div><strong>24H</strong><span>Free machine activation</span></div><div><strong>$5</strong><span>After 30 daily activations</span></div></div>${vip.active?`<div class="vip-status-line"><span>Subscription until</span><b>${esc(vip.until||"Active")}</b></div><div class="vip-progress"><span>Monthly activations</span><strong>${vip.monthlyActivations}/30</strong><div><i style="width:${Math.min(100,vip.monthlyActivations/30*100)}%"></i></div></div><button class="invest-btn" data-vip-activate ${vip.claimedToday?"disabled":""}>${vip.claimedToday?"Activated today":"Activate 24H free machine"}</button>`:vip.subscribedOnce?`<div class="vip-once-message"><strong>VIP is limited to one subscription per account.</strong><span>Your request cannot be upgraded or resubscribed because this account has already used VIP access.</span></div><button class="invest-btn" disabled>Already subscribed</button>`:`<button class="invest-btn" data-vip-subscribe>Subscribe with crypto</button>`}</div>`;
+  const planButtons=plans.map((plan)=>`<button class="vip-choice" data-vip-product="${plan.id}"><span>${esc(plan.name.replace(/^VIP\\s+/,""))}</span><strong>$${Number(plan.price).toFixed(2)}</strong><small>${Number(plan.hashrate).toFixed(0)} TH/s · 30 days</small></button>`).join("");
+  modal.innerHTML=`<div class="invoice-modal panel vip-modal"><button class="modal-close">×</button><span class="eyebrow">VIP Mining</span><h2>${vip.active?"Your VIP membership":"Choose your VIP tier"}</h2><div class="vip-benefits"><div><strong>24H</strong><span>Free machine activation</span></div><div><strong>$5</strong><span>Monthly reward</span></div><div><strong>30 days</strong><span>VIP access</span></div></div>${vip.active?`<div class="vip-status-line"><span>Subscription until</span><b>${esc(vip.until||"Active")}</b></div><div class="vip-progress"><span>Monthly activations</span><strong>${vip.monthlyActivations}/30</strong><div><i style="width:${Math.min(100,vip.monthlyActivations/30*100)}%"></i></div></div><button class="invest-btn" data-vip-activate ${vip.claimedToday?"disabled":""}>${vip.claimedToday?"Activated today":"Activate 24H free machine"}</button>`:vip.subscribedOnce?`<div class="vip-once-message"><strong>VIP is limited to one subscription per account.</strong><span>Your request cannot be upgraded or resubscribed because this account has already used VIP access.</span></div><button class="invest-btn" disabled>Already subscribed</button>`:`<div class="vip-choice-list">${planButtons}</div>`}</div>`;
   document.body.appendChild(modal);
   modal.addEventListener("click",async(event)=>{
     if(event.target===modal||event.target.closest(".modal-close")) return modal.remove();
-    if(event.target.closest("[data-vip-subscribe]")){
-      const result=await api("/vip/subscribe",{method:"POST",body:JSON.stringify({network:"USDT-TRC20"})}).catch(error=>({error:error.message}));
+    const vipChoice=event.target.closest("[data-vip-product]");
+    if(vipChoice){
+      const result=await api("/vip/subscribe",{method:"POST",body:JSON.stringify({productId:Number(vipChoice.dataset.vipProduct),network:"USDT-TRC20"})}).catch(error=>({error:error.message}));
       if(result.error) return toast(result.error);
       modal.remove();showInvoice({...result,product:{name:"VIP 30-Day Subscription"}});
     }
@@ -238,7 +271,7 @@ async function uploadAvatar(event) {
   const file=event.target.files?.[0]; if(!file) return;
   const form=new FormData(); form.append("avatar",file);
   try {
-    const response=await fetch("/api.php/me/avatar",{method:"POST",body:form,credentials:"same-origin"});
+    const response=await fetch("api.php/me/avatar",{method:"POST",body:form,credentials:"same-origin"});
     const result=await response.json().catch(()=>({}));
     if(!response.ok) throw new Error(result.error||"Avatar upload failed");
     state.user=result.user; toast("Profile picture updated"); render();
@@ -274,7 +307,7 @@ async function adminAction(event) {
   }
 }
 async function loadData() {
-  const [me,dashboard,miners,contracts,transactions,notifications,wallets,coins,referrals,vip] = await Promise.all([api("/me"),api("/dashboard"),api("/miners"),api("/contracts"),api("/transactions"),api("/notifications"),api("/wallets"),api("/coins"),api("/referrals"),api("/vip/status")]);
+  const [me,dashboard,miners,contracts,transactions,notifications,wallets,coins,referrals,vip] = await Promise.all([api("me"),api("dashboard"),api("miners"),api("contracts"),api("transactions"),api("notifications"),api("wallets"),api("coins"),api("referrals"),api("vip/status")]);
   state.user=me.user;
   state.data={dashboard,miners,contracts,transactions,notifications,wallets,coins,referrals,vip};
   if(state.user.isAdmin) {
@@ -287,9 +320,10 @@ async function loadPage() { try { await loadData(); } catch (error) { localStora
 window.addEventListener("hashchange", () => { state.route = location.hash.slice(1) || "overview"; if (state.authenticated) loadPage(); });
 async function loadPublicData() {
   try {
-    const [products,coins]=await Promise.all([api("/public/products"),api("/coins")]);
+    const [products,coins,vip]=await Promise.all([api("public/products"),api("coins"),api("public/vip")]);
     state.data.publicProducts=products;
     state.data.coins=coins;
+    state.data.publicVip=vip;
   } catch (_) {}
   render();
 }

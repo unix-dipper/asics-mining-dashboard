@@ -111,10 +111,10 @@ function initializeDatabase(PDO $pdo, string $driver): void {
             ['IceRiver AL3',480,1600,53.33,520,'✦',0],
             ['Whatsminer M63S+',680,2350,78.33,680,'⬢',0],
             ['VIP Black Diamond 24H',9.99,5,0.1667,95,'◆',1],
-            ['VIP Nova Hash 24H',9.99,5,0.1667,110,'✦',1],
-            ['VIP Quantum Miner',9.99,5,0.1667,125,'⬡',1],
-            ['VIP Elite Satoshi',9.99,5,0.1667,140,'◈',1],
-            ['VIP Aurora ASIC',9.99,5,0.1667,155,'◆',1],
+            ['VIP Nova Hash 24H',19.99,12,0.40,110,'✦',1],
+            ['VIP Quantum Miner',29.99,20,0.6667,125,'⬡',1],
+            ['VIP Elite Satoshi',49.99,35,1.1667,140,'◈',1],
+            ['VIP Aurora ASIC',79.99,60,2.00,155,'◆',1],
         ];
     $find=$pdo->prepare('SELECT id FROM products WHERE name=?');
     $insert=$pdo->prepare('INSERT INTO products (name, price_usd, total_return_usd, daily_profit_usd, hashrate, icon, vip_only) VALUES (?, ?, ?, ?, ?, ?, ?)');

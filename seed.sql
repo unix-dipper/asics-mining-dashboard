@@ -303,10 +303,10 @@ VALUES
   (8, 'IceRiver AL3', 480.00, 1600.00, 53.33, 520, '✦', 1, 0),
   (9, 'Whatsminer M63S+', 680.00, 2350.00, 78.33, 680, '⬢', 1, 0),
   (10, 'VIP Daily Miner', 9.99, 5.00, 0.1667, 95, '◆', 1, 1),
-  (11, 'VIP Nova Hash 24H', 9.99, 5.00, 0.1667, 110, '✦', 1, 1),
-  (12, 'VIP Quantum Miner', 9.99, 5.00, 0.1667, 125, '⬡', 1, 1),
-  (13, 'VIP Elite Satoshi', 9.99, 5.00, 0.1667, 140, '◈', 1, 1),
-  (14, 'VIP Aurora ASIC', 9.99, 5.00, 0.1667, 155, '◆', 1, 1)
+  (11, 'VIP Nova Hash 24H', 19.99, 12.00, 0.40, 110, '✦', 1, 1),
+  (12, 'VIP Quantum Miner', 29.99, 20.00, 0.6667, 125, '⬡', 1, 1),
+  (13, 'VIP Elite Satoshi', 49.99, 35.00, 1.1667, 140, '◈', 1, 1),
+  (14, 'VIP Aurora ASIC', 79.99, 60.00, 2.00, 155, '◆', 1, 1)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `price_usd` = VALUES(`price_usd`),

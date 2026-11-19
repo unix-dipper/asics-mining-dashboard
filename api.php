@@ -80,7 +80,7 @@ function sendTelegram(string $message): bool {
 }
 function pathParts(): array {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
-    $path = preg_replace('#^/api\.php/?#', '', $path);
+    $path = preg_replace('#^.*?/api\.php/?#', '', $path);
     return array_values(array_filter(explode('/', $path), 'strlen'));
 }
 function product(int $id): ?array {
@@ -106,6 +106,10 @@ $body = in_array($method, ['POST', 'PATCH'], true) ? jsonBody() : [];
 try {
     if ($parts === ['public', 'products'] && $method === 'GET') {
         $rows = $pdo->query('SELECT * FROM products WHERE active=1 AND vip_only=0 ORDER BY id')->fetchAll();
+        response(productRows($rows));
+    }
+    if ($parts === ['public', 'vip'] && $method === 'GET') {
+        $rows = $pdo->query("SELECT * FROM products WHERE active=1 AND vip_only=1 AND name <> 'VIP Daily Miner' ORDER BY price_usd, id")->fetchAll();
         response(productRows($rows));
     }
     if ($parts === ['coins'] && $method === 'GET') {
@@ -210,7 +214,7 @@ try {
     }
     if ($parts === ['vip', 'status']) {
         $vipActive=!empty($current['vip_until']) && strtotime((string)$current['vip_until'])>time();
-        $subscription=$pdo->prepare("SELECT COUNT(*) FROM payments p JOIN products pr ON pr.id=p.product_id WHERE p.user_id=? AND pr.vip_only=1 AND p.status IN ('pending','paid')");
+        $subscription=$pdo->prepare("SELECT COUNT(*) FROM payments p JOIN products pr ON pr.id=p.product_id WHERE p.user_id=? AND pr.vip_only=1 AND p.status IN ('pending','review','paid')");
         $subscription->execute([(int)$current['id']]);
         $subscribedOnce=(int)$subscription->fetchColumn()>0;
         $today=(string)date('Y-m-d');
@@ -225,13 +229,19 @@ try {
         response(['active'=>$vipActive,'until'=>$current['vip_until']??null,'subscribedOnce'=>$subscribedOnce,'price'=>9.99,'claimedToday'=>(bool)$claim->fetch(),'monthlyActivations'=>$monthlyCount,'monthlyReward'=>5,'rewardClaimed'=>(bool)$reward->fetch()]);
     }
     if ($parts === ['vip', 'subscribe'] && $method === 'POST') {
-        $subscription=$pdo->prepare("SELECT COUNT(*) FROM payments p JOIN products pr ON pr.id=p.product_id WHERE p.user_id=? AND pr.vip_only=1 AND p.status IN ('pending','paid')");
+        $subscription=$pdo->prepare("SELECT COUNT(*) FROM payments p JOIN products pr ON pr.id=p.product_id WHERE p.user_id=? AND pr.vip_only=1 AND p.status IN ('pending','review','paid')");
         $subscription->execute([(int)$current['id']]);
         if ((int)$subscription->fetchColumn()>0) {
             response(['error'=>'Your VIP subscription can only be purchased once per account.'],422);
         }
-        $stmt=$pdo->prepare("SELECT * FROM products WHERE name='VIP Daily Miner' OR name LIKE 'VIP Black Diamond%' ORDER BY id LIMIT 1");
-        $stmt->execute(); $item=$stmt->fetch();
+        $productId=(int)($body['productId']??0);
+        $stmt=$pdo->prepare('SELECT * FROM products WHERE id=? AND active=1 AND vip_only=1');
+        $stmt->execute([$productId]);
+        $item=$stmt->fetch();
+        if (!$item) {
+            $stmt=$pdo->query("SELECT * FROM products WHERE vip_only=1 AND active=1 ORDER BY price_usd,id LIMIT 1");
+            $item=$stmt->fetch();
+        }
         if (!$item) {
             $pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active,vip_only) VALUES (?,?,?,?,?,?,1,1)')
                 ->execute(['VIP Daily Miner',9.99,5,0.1667,95,'◆']);
@@ -240,13 +250,14 @@ try {
         }
         $network=strtoupper(trim((string)($body['network']??'BTC')));
         $coins=coinConfig(); if(!array_key_exists($network,$coins)) response(['error'=>'Payment coin is not supported'],422);
-        $cryptoAmount=round(9.99/(float)$coins[$network]['rate'],8);
+        $price=(float)$item['price_usd'];
+        $cryptoAmount=round($price/(float)$coins[$network]['rate'],8);
         $code='VIP-'.strtoupper(bin2hex(random_bytes(5)));
         $pdo->prepare('INSERT INTO payments (user_id,product_id,invoice_code,network,address,amount_usd,amount_crypto,status) VALUES (?,?,?,?,?,?,?,\'pending\')')
-            ->execute([$current['id'],$item['id'],$code,$network,$coins[$network]['address'],9.99,$cryptoAmount]);
+            ->execute([$current['id'],$item['id'],$code,$network,$coins[$network]['address'],$price,$cryptoAmount]);
         $paymentId=(int)$pdo->lastInsertId();
-        $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([$current['id'],'VIP subscription',9.99,'pending',$code]);
-        response(['id'=>$paymentId,'invoiceCode'=>$code,'network'=>$network,'address'=>$coins[$network]['address'],'amountUsd'=>9.99,'amountCrypto'=>$cryptoAmount,'status'=>'pending','product'=>['name'=>'VIP Subscription','price'=>9.99]],201);
+        $pdo->prepare('INSERT INTO transactions (user_id,type,amount,status,reference) VALUES (?,?,?,?,?)')->execute([$current['id'],'VIP subscription',$price,'pending',$code]);
+        response(['id'=>$paymentId,'invoiceCode'=>$code,'network'=>$network,'address'=>$coins[$network]['address'],'amountUsd'=>$price,'amountCrypto'=>$cryptoAmount,'status'=>'pending','product'=>['name'=>$item['name'],'price'=>$price]],201);
     }
     if ($parts === ['vip', 'activate'] && $method === 'POST') {
         $vipActive=!empty($current['vip_until']) && strtotime((string)$current['vip_until'])>time();
@@ -343,7 +354,7 @@ try {
         foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'TX-'.$row['id'],'type'=>$row['type'],'amount'=>(float)$row['amount'],'status'=>$row['status'],'reference'=>$row['reference'],'coin'=>null,'date'=>$row['date']];
         $stmt=$pdo->prepare('SELECT id,invoice_code,network,amount_usd,status,txid,created_at,confirmed_at,paid_at,cancelled_at FROM payments WHERE user_id=? ORDER BY id DESC');
         $stmt->execute([$current['id']]);
-        foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'PAY-'.$row['id'],'type'=>'Crypto deposit','amount'=>(float)$row['amount_usd'],'status'=>$row['status'],'reference'=>$row['invoice_code'],'coin'=>$row['network'],'date'=>$row['created_at'],'confirmedAt'=>$row['confirmed_at']??null,'paidAt'=>$row['paid_at']??null,'cancelledAt'=>$row['cancelled_at']??null];
+        foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'PAY-'.$row['id'],'paymentId'=>(int)$row['id'],'type'=>'Crypto deposit','amount'=>(float)$row['amount_usd'],'status'=>$row['status'],'reference'=>$row['invoice_code'],'coin'=>$row['network'],'date'=>$row['created_at'],'confirmedAt'=>$row['confirmed_at']??null,'paidAt'=>$row['paid_at']??null,'cancelledAt'=>$row['cancelled_at']??null];
         $stmt=$pdo->prepare('SELECT id,coin,address,amount_usd,status,txid,created_at FROM withdrawals WHERE user_id=? ORDER BY id DESC');
         $stmt->execute([$current['id']]);
         foreach($stmt->fetchAll() as $row) $transactions[]=['id'=>'WD-'.$row['id'],'type'=>'Crypto withdrawal','amount'=>(float)$row['amount_usd'],'status'=>$row['status'],'reference'=>$row['txid'] ?: 'WD-'.$row['id'],'coin'=>$row['coin'],'date'=>$row['created_at']];
@@ -390,7 +401,7 @@ try {
     if ($parts === ['admin', 'overview']) {
         requireAdmin($current);
         $users=(int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
-        $pendingPayments=(float)$pdo->query("SELECT COALESCE(SUM(amount_usd),0) FROM payments WHERE status='pending'")->fetchColumn();
+        $pendingPayments=(float)$pdo->query("SELECT COALESCE(SUM(amount_usd),0) FROM payments WHERE status IN ('pending','review')")->fetchColumn();
         $paidPayments=(float)$pdo->query("SELECT COALESCE(SUM(amount_usd),0) FROM payments WHERE status='paid'")->fetchColumn();
         $pendingWithdrawals=(float)$pdo->query("SELECT COALESCE(SUM(amount_usd),0) FROM withdrawals WHERE status='pending'")->fetchColumn();
         $purchases=(int)$pdo->query('SELECT COUNT(*) FROM purchases')->fetchColumn();

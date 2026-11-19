@@ -17,7 +17,7 @@ A PHP full-stack mining dashboard inspired by the supplied reference image.
 - Referral codes and 5% referral rewards after confirmed purchases
 - Profile editing and JPG/PNG/WebP avatar uploads
 - Live crypto/USD conversion rates from CoinGecko with cached fallback
-- $9.99 VIP subscription, VIP-only machines, 24-hour daily free-machine activation, and a $5 monthly reward after 30 activations
+- Tiered VIP plans ($9.99-$79.99), VIP-only machines, 24-hour daily free-machine activation, and a $5 monthly reward after 30 activations
 - Tiered referrals: 5% with 1-4 referrals, 7% with 5-9, and 10% with 10+
 - Administrator account suspension/reactivation, balance adjustments, deposits/earnings summaries, device/IP history, and audit logs
 - Administrator product add, edit, VIP/public classification, activation, and removal controls
@@ -87,7 +87,7 @@ export TELEGRAM_BOT_TOKEN="your-bot-token"
 export TELEGRAM_CHAT_ID="your-chat-or-channel-id"
 ```
 
-Telegram notifications are sent for contact submissions and for deposits when a user clicks "I have sent the payment". Alerts are optional; the database retains contact messages and payment confirmation events without Telegram.
+Telegram notifications are sent for contact submissions and for deposits when a user clicks "I have sent the payment". The confirmation action is also available on the Transactions page, and the dashboard's Need help button opens the stored contact form. Alerts are optional; the database retains contact messages and payment confirmation events without Telegram.
 
 Create an invoice with `POST /api.php/payments/invoice`, then configure BTCPay Server, Coinbase Commerce, or another crypto provider to call `POST /api.php/payments/webhook` with JSON containing `invoiceCode` and `txid`. The webhook creates the owned mining product and transaction atomically. The default address is intentionally a demo placeholder and must be replaced before accepting funds.
 Responsive mining dashboard inspired by the provided reference image, with Arabic and English localization.
