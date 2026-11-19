@@ -10,7 +10,7 @@ function adminUsersTable(rows){return `<div class="admin-table-wrap"><table><the
 function adminPaymentsTable(rows){return `<div class="admin-table-wrap"><table><thead><tr><th>User</th><th>Plan</th><th>Network</th><th>Amount</th><th>Created</th><th>User confirmed</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${adminEsc(r.name)}<small>${adminEsc(r.email)}</small></td><td>${adminEsc(r.product_name)}</td><td>${adminEsc(r.network)}</td><td>$${Number(r.amount_usd).toFixed(2)}</td><td>${adminEsc(r.created_at)}</td><td>${r.confirmed_at?adminEsc(r.confirmed_at):"—"}</td><td><span class="admin-status ${adminEsc(r.status)}">${adminEsc(r.status)}</span></td><td>${r.status==="pending"||r.status==="review"?`<button class="admin-confirm" data-payment="${r.id}" data-action="confirm">Confirm</button><button class="admin-cancel" data-payment="${r.id}" data-action="cancel">Cancel</button>`:"—"}</td></tr>`).join("")}</tbody></table></div>`}
 function adminWithdrawalsTable(rows){return `<div class="admin-table-wrap"><table><thead><tr><th>User</th><th>Coin</th><th>Amount</th><th>Destination</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${adminEsc(r.name)}<small>${adminEsc(r.email)}</small></td><td>${adminEsc(r.coin)}</td><td>$${Number(r.amount_usd).toFixed(2)}</td><td class="admin-address">${adminEsc(r.address)}</td><td><span class="admin-status ${adminEsc(r.status)}">${adminEsc(r.status)}</span></td><td>${r.status==="pending"?`<button class="admin-confirm" data-withdrawal="${r.id}" data-action="approve">Approve</button><button class="admin-cancel" data-withdrawal="${r.id}" data-action="reject">Reject</button>`:"—"}</td></tr>`).join("")}</tbody></table></div>`}
 function adminProductsTable(rows){
-  return `<button class="admin-confirm admin-add-product" id="addProduct">+ Add product</button><div class="admin-table-wrap"><table><thead><tr><th>Name</th><th>Price</th><th>Daily</th><th>Hashrate</th><th>VIP</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(p=>`<tr><td>${adminEsc(p.name)}</td><td>$${Number(p.price_usd).toFixed(2)}</td><td>$${Number(p.daily_profit_usd).toFixed(2)}</td><td>${Number(p.hashrate).toFixed(2)} TH/s</td><td>${p.vip_only?"VIP only":"Public"}</td><td>${p.active?"Active":"Inactive"}</td><td><button class="admin-confirm" data-edit-product="${p.id}">Edit</button><button class="admin-cancel" data-delete-product="${p.id}">Remove</button></td></tr>`).join("")}</tbody></table></div>`;
+  return `<button class="admin-confirm admin-add-product" id="addProduct">+ Add product</button><div class="admin-table-wrap"><table><thead><tr><th>Name</th><th>Price</th><th>Daily</th><th>Return</th><th>Duration</th><th>Hashrate</th><th>VIP</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(p=>`<tr><td>${adminEsc(p.name)}</td><td>$${Number(p.price_usd).toFixed(2)}</td><td>$${Number(p.daily_profit_usd).toFixed(2)}</td><td>$${Number(p.total_return_usd).toFixed(2)}</td><td>${Number(p.duration_days||30)} days</td><td>${Number(p.hashrate).toFixed(0)} TH/s</td><td>${p.vip_only?"VIP only":"Public"}</td><td>${p.active?"Active":"Inactive"}</td><td><button class="admin-confirm" data-edit-product="${p.id}">Edit</button><button class="admin-cancel" data-delete-product="${p.id}">Remove</button></td></tr>`).join("")}</tbody></table></div>`;
 }
 async function loadAdmin(){
   try{
@@ -35,6 +35,7 @@ function renderAdminLogin(message=""){
   });
 }
 function bindAdmin(data){
+  window.adminData=data;
   document.querySelectorAll("[data-admin-section]").forEach(button=>button.addEventListener("click",()=>{
     document.querySelectorAll("[data-admin-section]").forEach(item=>item.classList.remove("active"));button.classList.add("active");
     const section=button.dataset.adminSection;
@@ -54,21 +55,23 @@ function bindActions(){
     const price=Number(prompt("Price USD","99"));
     const daily=Number(prompt("Daily profit USD","3"));
     const hashrate=Number(prompt("Hashrate TH/s","100"));
+    const durationDays=Number(prompt("Duration in days (7, 15, or 30)","30"));
     const total=Number(prompt("Total return USD",String(price*3)));
     const vip=confirm("Is this a VIP-only product?");
-    try{await adminApi("/admin/products",{method:"POST",body:JSON.stringify({name,price,daily,hashrate,total,vipOnly:vip?1:0,active:1})});adminToast("Product added");await loadAdmin();}catch(error){adminToast(error.message);}
+    try{await adminApi("/admin/products",{method:"POST",body:JSON.stringify({name,price,daily,hashrate,total,durationDays,vipOnly:vip?1:0,active:1})});adminToast("Product added");await loadAdmin();}catch(error){adminToast(error.message);}
   });
   document.querySelectorAll("[data-edit-product]").forEach(button=>button.addEventListener("click",async()=>{
     const id=button.dataset.editProduct;
-    const row=(data.products||[]).find(p=>String(p.id)==String(id)); if(!row)return;
+    const row=(window.adminData?.products||[]).find(p=>String(p.id)==String(id)); if(!row)return;
     const name=prompt("Product name",row.name); if(name===null)return;
     const price=Number(prompt("Price USD",row.price_usd));
     const daily=Number(prompt("Daily profit USD",row.daily_profit_usd));
     const hashrate=Number(prompt("Hashrate TH/s",row.hashrate));
+    const durationDays=Number(prompt("Duration in days (7, 15, or 30)",row.duration_days||30));
     const total=Number(prompt("Total return USD",row.total_return_usd));
     const vip=confirm("VIP-only product?");
     const active=confirm("Keep this product active?");
-    try{await adminApi("/admin/products",{method:"PATCH",body:JSON.stringify({id:Number(id),name,price,daily,hashrate,total,vipOnly:vip?1:0,active:active?1:0})});adminToast("Product updated");await loadAdmin();}catch(error){adminToast(error.message);}
+    try{await adminApi("/admin/products",{method:"PATCH",body:JSON.stringify({id:Number(id),name,price,daily,hashrate,total,durationDays,vipOnly:vip?1:0,active:active?1:0})});adminToast("Product updated");await loadAdmin();}catch(error){adminToast(error.message);}
   }));
   document.querySelectorAll("[data-delete-product]").forEach(button=>button.addEventListener("click",async()=>{
     if(!confirm("Remove this product from the store?"))return;

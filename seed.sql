@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS `products` (
   `total_return_usd` DECIMAL(16,8) NOT NULL,
   `daily_profit_usd` DECIMAL(16,8) NOT NULL,
   `hashrate` DECIMAL(16,8) NOT NULL,
+  `duration_days` INT UNSIGNED NOT NULL DEFAULT 30,
   `icon` VARCHAR(32) NOT NULL,
   `active` TINYINT(1) NOT NULL DEFAULT 1,
   `vip_only` TINYINT(1) NOT NULL DEFAULT 0,
@@ -105,6 +106,12 @@ SET @sql = (SELECT IF(COUNT(*) = 0,
   'ALTER TABLE `products` ADD COLUMN `vip_only` TINYINT(1) NOT NULL DEFAULT 0',
   'SELECT 1') FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'vip_only');
+PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
+
+SET @sql = (SELECT IF(COUNT(*) = 0,
+  'ALTER TABLE `products` ADD COLUMN `duration_days` INT UNSIGNED NOT NULL DEFAULT 30',
+  'SELECT 1') FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'duration_days');
 PREPARE migration_stmt FROM @sql; EXECUTE migration_stmt; DEALLOCATE PREPARE migration_stmt;
 
 CREATE TABLE IF NOT EXISTS `wallet_addresses` (
@@ -290,29 +297,30 @@ CREATE TABLE IF NOT EXISTS `payment_events` (
   CONSTRAINT `payment_event_payment_fk` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+UPDATE `products` SET `active` = 0
+WHERE `name` IN ('Antminer DR7 127 Th','Antminer KA3 (166 Th)','Bitmain Antminer S23','Bitmain Antminer S21 Pro','Goldshell Mini-DOGE','Whatsminer M60S','Avalon Miner A1466','IceRiver AL3','VIP Black Diamond 24H');
+
 INSERT INTO `products`
-  (`id`, `name`, `price_usd`, `total_return_usd`, `daily_profit_usd`, `hashrate`, `icon`, `active`, `vip_only`)
+  (`id`, `name`, `price_usd`, `total_return_usd`, `daily_profit_usd`, `hashrate`, `duration_days`, `icon`, `active`, `vip_only`)
 VALUES
-  (1, 'Antminer DR7 127 Th', 10.00, 19.00, 2.71, 127, '▧', 1, 0),
-  (2, 'Antminer KA3 (166 Th)', 30.00, 61.00, 3.39, 166, '▦', 1, 0),
-  (3, 'Bitmain Antminer S23', 50.00, 111.00, 3.70, 195, '▥', 1, 0),
-  (4, 'Bitmain Antminer S21 Pro', 100.00, 350.00, 11.67, 234, '▤', 1, 0),
-  (5, 'Goldshell Mini-DOGE', 160.00, 520.00, 17.33, 285, '◆', 1, 0),
-  (6, 'Whatsminer M60S', 225.00, 780.00, 26.00, 340, '⬡', 1, 0),
-  (7, 'Avalon Miner A1466', 320.00, 1100.00, 36.67, 410, '◈', 1, 0),
-  (8, 'IceRiver AL3', 480.00, 1600.00, 53.33, 520, '✦', 1, 0),
-  (9, 'Whatsminer M63S+', 680.00, 2350.00, 78.33, 680, '⬢', 1, 0),
-  (10, 'VIP Daily Miner', 9.99, 5.00, 0.1667, 95, '◆', 1, 1),
-  (11, 'VIP Nova Hash 24H', 19.99, 12.00, 0.40, 110, '✦', 1, 1),
-  (12, 'VIP Quantum Miner', 29.99, 20.00, 0.6667, 125, '⬡', 1, 1),
-  (13, 'VIP Elite Satoshi', 49.99, 35.00, 1.1667, 140, '◈', 1, 1),
-  (14, 'VIP Aurora ASIC', 79.99, 60.00, 2.00, 155, '◆', 1, 1)
+  (1, 'Antminer DR7 127 TH', 10.00, 12.60, 1.80, 127, 7, '▧', 1, 0),
+  (2, 'Antminer KA3 166 TH', 30.00, 43.50, 2.90, 166, 7, '▦', 1, 0),
+  (3, 'Antminer S21 Pro 234 TH', 100.00, 180.00, 12.00, 234, 15, '▤', 1, 0),
+  (4, 'Antminer S23 318 TH', 250.00, 525.00, 35.00, 318, 15, '▥', 1, 0),
+  (5, 'Whatsminer M63S+ 390 TH', 500.00, 1500.00, 50.00, 390, 30, '⬢', 1, 0),
+  (6, 'Antminer S21 XP Hyd 473 TH', 1000.00, 4200.00, 140.00, 473, 30, '✦', 1, 0),
+  (10, 'VIP Daily Miner', 9.99, 5.00, 0.1667, 95, 1, '◆', 1, 1),
+  (11, 'VIP Nova Hash 24H', 19.99, 12.00, 0.40, 110, 30, '✦', 1, 1),
+  (12, 'VIP Quantum Miner', 29.99, 20.00, 0.6667, 125, 30, '⬡', 1, 1),
+  (13, 'VIP Elite Satoshi', 49.99, 35.00, 1.1667, 140, 30, '◈', 1, 1),
+  (14, 'VIP Aurora ASIC', 79.99, 60.00, 2.00, 155, 30, '◆', 1, 1)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `price_usd` = VALUES(`price_usd`),
   `total_return_usd` = VALUES(`total_return_usd`),
   `daily_profit_usd` = VALUES(`daily_profit_usd`),
   `hashrate` = VALUES(`hashrate`),
+  `duration_days` = VALUES(`duration_days`),
   `icon` = VALUES(`icon`),
   `active` = VALUES(`active`),
   `vip_only` = VALUES(`vip_only`);

@@ -92,7 +92,7 @@ function productRows(array $rows): array {
     return array_map(fn($row) => [
         'id' => (int) $row['id'], 'name' => $row['name'], 'price' => (float) $row['price_usd'],
         'total' => (float) $row['total_return_usd'], 'daily' => (float) $row['daily_profit_usd'],
-        'hashrate' => (float) $row['hashrate'], 'icon' => $row['icon'],
+        'hashrate' => (float) $row['hashrate'], 'durationDays' => (int)($row['duration_days'] ?? 30), 'icon' => $row['icon'],
         'image' => ['/images/dr7.svg','/images/ka3.svg','/images/s23.svg','/images/s21.svg'][$row['id'] - 1] ?? '/images/miner.svg',
         'vipOnly' => (int)($row['vip_only'] ?? 0) === 1,
     ], $rows);
@@ -243,8 +243,8 @@ try {
             $item=$stmt->fetch();
         }
         if (!$item) {
-            $pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active,vip_only) VALUES (?,?,?,?,?,?,1,1)')
-                ->execute(['VIP Daily Miner',9.99,5,0.1667,95,'◆']);
+            $pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,duration_days,icon,active,vip_only) VALUES (?,?,?,?,?,?,?,1,1)')
+                ->execute(['VIP Daily Miner',9.99,5,0.1667,95,1,'◆']);
             $id=(int)$pdo->lastInsertId();
             $stmt=$pdo->prepare('SELECT * FROM products WHERE id=?'); $stmt->execute([$id]); $item=$stmt->fetch();
         }
@@ -270,8 +270,8 @@ try {
         $pdo->prepare('INSERT INTO vip_free_claims (user_id,activation_date) VALUES (?,?)')->execute([(int)$current['id'],$today]);
         $product=$pdo->query("SELECT id FROM products WHERE name='VIP Daily Miner' LIMIT 1")->fetch();
         if (!$product) {
-            $pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active,vip_only) VALUES (?,?,?,?,?,?,1,1)')
-                ->execute(['VIP Daily Miner',9.99,5,0.1667,95,'◆']);
+            $pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,duration_days,icon,active,vip_only) VALUES (?,?,?,?,?,?,?,1,1)')
+                ->execute(['VIP Daily Miner',9.99,5,0.1667,95,1,'◆']);
             $productId=(int)$pdo->lastInsertId();
         } else $productId=(int)$product['id'];
         $expires=(string)date('Y-m-d H:i:s',time()+86400);
@@ -344,8 +344,8 @@ try {
         response($coins);
     }
     if ($parts === ['contracts']) {
-        $stmt = $pdo->prepare('SELECT o.*, p.name, p.hashrate, p.price_usd price, p.total_return_usd total, p.daily_profit_usd daily, p.icon FROM purchases o JOIN products p ON p.id=o.product_id WHERE o.user_id=? ORDER BY o.id DESC');
-        $stmt->execute([$current['id']]); response(array_map(fn($row) => ['id'=>(int)$row['id'], 'name'=>$row['name'], 'hashrate'=>(float)$row['hashrate'], 'price'=>(float)$row['price'], 'total'=>(float)$row['total'], 'daily'=>(float)$row['daily'], 'icon'=>$row['icon'], 'status'=>$row['status'], 'earningsPaid'=>(float)$row['earnings_paid'], 'purchasedAt'=>$row['purchased_at']], $stmt->fetchAll()));
+        $stmt = $pdo->prepare('SELECT o.*, p.name, p.hashrate, p.price_usd price, p.total_return_usd total, p.daily_profit_usd daily, p.duration_days, p.icon FROM purchases o JOIN products p ON p.id=o.product_id WHERE o.user_id=? ORDER BY o.id DESC');
+        $stmt->execute([$current['id']]); response(array_map(fn($row) => ['id'=>(int)$row['id'], 'name'=>$row['name'], 'hashrate'=>(float)$row['hashrate'], 'price'=>(float)$row['price'], 'total'=>(float)$row['total'], 'daily'=>(float)$row['daily'], 'durationDays'=>(int)$row['duration_days'], 'expiresAt'=>$row['expires_at'], 'icon'=>$row['icon'], 'status'=>$row['status'], 'earningsPaid'=>(float)$row['earnings_paid'], 'purchasedAt'=>$row['purchased_at']], $stmt->fetchAll()));
     }
     if ($parts === ['transactions']) {
         $transactions=[];
@@ -471,14 +471,14 @@ try {
         requireAdmin($current);
         if ($method === 'GET') response($pdo->query('SELECT * FROM products ORDER BY id')->fetchAll());
         if ($method === 'POST') {
-            $stmt=$pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,icon,active,vip_only) VALUES (?,?,?,?,?,?,?,?)');
-            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0)]);
+            $stmt=$pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,duration_days,icon,active,vip_only) VALUES (?,?,?,?,?,?,?,?,?)');
+            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(int)($body['durationDays']??30),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0)]);
             response(['id'=>(int)$pdo->lastInsertId(),'ok'=>true],201);
         }
         if ($method === 'PATCH') {
             $id=(int)($body['id']??0);
-            $stmt=$pdo->prepare('UPDATE products SET name=?,price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,icon=?,active=?,vip_only=? WHERE id=?');
-            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0),$id]);
+            $stmt=$pdo->prepare('UPDATE products SET name=?,price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,duration_days=?,icon=?,active=?,vip_only=? WHERE id=?');
+            $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(int)($body['durationDays']??30),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0),$id]);
             response(['ok'=>true]);
         }
     }
@@ -498,14 +498,15 @@ try {
             $pdo->beginTransaction();
             $pdo->prepare('UPDATE payments SET status="paid",txid=?,paid_at=CURRENT_TIMESTAMP,confirmed_at=COALESCE(confirmed_at,CURRENT_TIMESTAMP) WHERE id=?')->execute([(string)($body['txid']??''),$paymentId]);
             $pdo->prepare('INSERT INTO payment_events (payment_id,event_type,ip_address,user_agent) VALUES (?,?,?,?)')->execute([$paymentId,'confirmed',clientIp(),substr((string)($_SERVER['HTTP_USER_AGENT']??''),0,500)]);
-            $product=$pdo->prepare('SELECT vip_only FROM products WHERE id=?'); $product->execute([$payment['product_id']]); $vipOnly=(int)$product->fetchColumn();
+            $product=$pdo->prepare('SELECT vip_only,duration_days FROM products WHERE id=?'); $product->execute([$payment['product_id']]); $productRow=$product->fetch(); $vipOnly=(int)$productRow['vip_only'];
             if ($vipOnly) {
                 $user=$pdo->prepare('SELECT vip_until FROM users WHERE id=?'); $user->execute([$payment['user_id']]); $until=$user->fetchColumn();
                 $base=max(time(),$until ? strtotime((string)$until) : time());
-                $vipUntil=date('Y-m-d H:i:s',$base+30*86400);
+                $vipUntil=date('Y-m-d H:i:s',$base+(int)$productRow['duration_days']*86400);
                 $pdo->prepare('UPDATE users SET vip_until=? WHERE id=?')->execute([$vipUntil,$payment['user_id']]);
             } else {
-                $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status) VALUES (?,?,?,\'active\')')->execute([$payment['user_id'],$payment['product_id'],$paymentId]);
+                $expires=date('Y-m-d H:i:s',time()+(int)$productRow['duration_days']*86400);
+                $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status,expires_at) VALUES (?,?,?,\'active\',?)')->execute([$payment['user_id'],$payment['product_id'],$paymentId,$expires]);
             }
             $pdo->prepare('UPDATE transactions SET status="completed" WHERE user_id=? AND reference=?')->execute([$payment['user_id'],$payment['invoice_code']]);
             $pdo->prepare('INSERT INTO notifications (user_id,title,message) VALUES (?,?,?)')->execute([$payment['user_id'],'Payment confirmed','Your mining product is now active.']);
@@ -561,13 +562,14 @@ try {
         if ($payment['status'] !== 'paid') {
             $pdo->beginTransaction();
             $pdo->prepare('UPDATE payments SET status="paid", txid=?, paid_at=CURRENT_TIMESTAMP WHERE id=?')->execute([(string)($payload['txid']??''),$payment['id']]);
-            $product=$pdo->prepare('SELECT vip_only FROM products WHERE id=?'); $product->execute([$payment['product_id']]); $vipOnly=(int)$product->fetchColumn();
+            $product=$pdo->prepare('SELECT vip_only,duration_days FROM products WHERE id=?'); $product->execute([$payment['product_id']]); $productRow=$product->fetch(); $vipOnly=(int)$productRow['vip_only'];
             if ($vipOnly) {
                 $user=$pdo->prepare('SELECT vip_until FROM users WHERE id=?'); $user->execute([$payment['user_id']]); $until=$user->fetchColumn();
                 $base=max(time(),$until ? strtotime((string)$until) : time());
-                $pdo->prepare('UPDATE users SET vip_until=? WHERE id=?')->execute([date('Y-m-d H:i:s',$base+30*86400),$payment['user_id']]);
+                $pdo->prepare('UPDATE users SET vip_until=? WHERE id=?')->execute([date('Y-m-d H:i:s',$base+(int)$productRow['duration_days']*86400),$payment['user_id']]);
             } else {
-                $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status) VALUES (?,?,?,\'active\')')->execute([$payment['user_id'],$payment['product_id'],$payment['id']]);
+                $expires=date('Y-m-d H:i:s',time()+(int)$productRow['duration_days']*86400);
+                $pdo->prepare('INSERT INTO purchases (user_id,product_id,payment_id,status,expires_at) VALUES (?,?,?,\'active\',?)')->execute([$payment['user_id'],$payment['product_id'],$payment['id'],$expires]);
             }
             $pdo->prepare('UPDATE transactions SET status="completed" WHERE user_id=? AND reference=?')->execute([$payment['user_id'],$payment['invoice_code']]);
             $pdo->prepare('INSERT INTO notifications (user_id,title,message) VALUES (?,?,?)')->execute([$payment['user_id'],'Payment confirmed','Your mining product is now active.']);

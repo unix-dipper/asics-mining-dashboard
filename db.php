@@ -36,7 +36,7 @@ function db(): PDO {
 function initializeDatabase(PDO $pdo, string $driver): void {
     if ($driver === 'mysql') {
         $pdo->exec('CREATE TABLE IF NOT EXISTS users (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(191) NOT NULL, email VARCHAR(191) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, account_id VARCHAR(191) NOT NULL UNIQUE, uid VARCHAR(191) NOT NULL UNIQUE, balance DECIMAL(16,8) NOT NULL DEFAULT 0, is_admin TINYINT(1) NOT NULL DEFAULT 0, avatar VARCHAR(255) NULL, bio VARCHAR(500) NULL, referral_code VARCHAR(32) NULL UNIQUE, referred_by INT UNSIGNED NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB');
-        $pdo->exec('CREATE TABLE IF NOT EXISTS products (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(191) NOT NULL, price_usd DECIMAL(16,8) NOT NULL, total_return_usd DECIMAL(16,8) NOT NULL, daily_profit_usd DECIMAL(16,8) NOT NULL, hashrate DECIMAL(16,8) NOT NULL, icon VARCHAR(32) NOT NULL, active TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB');
+        $pdo->exec('CREATE TABLE IF NOT EXISTS products (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(191) NOT NULL, price_usd DECIMAL(16,8) NOT NULL, total_return_usd DECIMAL(16,8) NOT NULL, daily_profit_usd DECIMAL(16,8) NOT NULL, hashrate DECIMAL(16,8) NOT NULL, duration_days INT UNSIGNED NOT NULL DEFAULT 30, icon VARCHAR(32) NOT NULL, active TINYINT(1) NOT NULL DEFAULT 1) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS payments (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, product_id INT UNSIGNED NOT NULL, invoice_code VARCHAR(191) NOT NULL UNIQUE, network VARCHAR(32) NOT NULL, address VARCHAR(191) NOT NULL, amount_usd DECIMAL(16,8) NOT NULL, amount_crypto DECIMAL(16,8) NOT NULL, status VARCHAR(32) NOT NULL DEFAULT "pending", txid VARCHAR(191) NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, paid_at TIMESTAMP NULL, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (product_id) REFERENCES products(id)) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS purchases (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, product_id INT UNSIGNED NOT NULL, payment_id INT UNSIGNED NULL, status VARCHAR(32) NOT NULL DEFAULT "active", purchased_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, earnings_paid DECIMAL(16,8) NOT NULL DEFAULT 0, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (product_id) REFERENCES products(id), FOREIGN KEY (payment_id) REFERENCES payments(id)) ENGINE=InnoDB');
         $pdo->exec('CREATE TABLE IF NOT EXISTS transactions (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id INT UNSIGNED NOT NULL, type VARCHAR(191) NOT NULL, amount DECIMAL(16,8) NOT NULL, status VARCHAR(32) NOT NULL, reference VARCHAR(191) NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB');
@@ -55,7 +55,7 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         $pdo->exec('PRAGMA journal_mode = WAL');
         $pdo->exec('
             CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, account_id TEXT NOT NULL UNIQUE, uid TEXT NOT NULL UNIQUE, balance REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price_usd REAL NOT NULL, total_return_usd REAL NOT NULL, daily_profit_usd REAL NOT NULL, hashrate REAL NOT NULL, icon TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1);
+            CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price_usd REAL NOT NULL, total_return_usd REAL NOT NULL, daily_profit_usd REAL NOT NULL, hashrate REAL NOT NULL, duration_days INTEGER NOT NULL DEFAULT 30, icon TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1);
             CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, invoice_code TEXT NOT NULL UNIQUE, network TEXT NOT NULL, address TEXT NOT NULL, amount_usd REAL NOT NULL, amount_crypto REAL NOT NULL, status TEXT NOT NULL DEFAULT "pending", txid TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, paid_at TEXT, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (product_id) REFERENCES products(id));
             CREATE TABLE IF NOT EXISTS purchases (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, product_id INTEGER NOT NULL, payment_id INTEGER, status TEXT NOT NULL DEFAULT "active", purchased_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, earnings_paid REAL NOT NULL DEFAULT 0, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (product_id) REFERENCES products(id), FOREIGN KEY (payment_id) REFERENCES payments(id));
             CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, type TEXT NOT NULL, amount REAL NOT NULL, status TEXT NOT NULL, reference TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);
@@ -82,6 +82,7 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         ensureMySqlColumn($pdo, 'users', 'status', 'VARCHAR(32) NOT NULL DEFAULT "active"');
         ensureMySqlColumn($pdo, 'users', 'admin_note', 'TEXT NULL');
         ensureMySqlColumn($pdo, 'products', 'vip_only', 'TINYINT(1) NOT NULL DEFAULT 0');
+        ensureMySqlColumn($pdo, 'products', 'duration_days', 'INT UNSIGNED NOT NULL DEFAULT 30');
         ensureMySqlColumn($pdo, 'purchases', 'expires_at', 'TIMESTAMP NULL');
         ensureMySqlColumn($pdo, 'payments', 'confirmed_at', 'TIMESTAMP NULL');
         ensureMySqlColumn($pdo, 'payments', 'cancelled_at', 'TIMESTAMP NULL');
@@ -95,34 +96,33 @@ function initializeDatabase(PDO $pdo, string $driver): void {
         ensureSqliteColumn($pdo, 'users', 'status', 'TEXT NOT NULL DEFAULT "active"');
         ensureSqliteColumn($pdo, 'users', 'admin_note', 'TEXT');
         ensureSqliteColumn($pdo, 'products', 'vip_only', 'INTEGER NOT NULL DEFAULT 0');
+        ensureSqliteColumn($pdo, 'products', 'duration_days', 'INTEGER NOT NULL DEFAULT 30');
         ensureSqliteColumn($pdo, 'purchases', 'expires_at', 'TEXT');
         ensureSqliteColumn($pdo, 'payments', 'confirmed_at', 'TEXT');
         ensureSqliteColumn($pdo, 'payments', 'cancelled_at', 'TEXT');
     }
 
     $catalog = [
-            ['Antminer DR7 127 Th',10,19,2.71,127,'▧',0],
-            ['Antminer KA3 (166 Th)',30,61,3.39,166,'▦',0],
-            ['Bitmain Antminer S23',50,111,3.70,195,'▥',0],
-            ['Bitmain Antminer S21 Pro',100,350,11.67,234,'▤',0],
-            ['Goldshell Mini-DOGE',160,520,17.33,285,'◆',0],
-            ['Whatsminer M60S',225,780,26.00,340,'⬡',0],
-            ['Avalon Miner A1466',320,1100,36.67,410,'◈',0],
-            ['IceRiver AL3',480,1600,53.33,520,'✦',0],
-            ['Whatsminer M63S+',680,2350,78.33,680,'⬢',0],
-            ['VIP Black Diamond 24H',9.99,5,0.1667,95,'◆',1],
-            ['VIP Nova Hash 24H',19.99,12,0.40,110,'✦',1],
-            ['VIP Quantum Miner',29.99,20,0.6667,125,'⬡',1],
-            ['VIP Elite Satoshi',49.99,35,1.1667,140,'◈',1],
-            ['VIP Aurora ASIC',79.99,60,2.00,155,'◆',1],
+            ['Antminer DR7 127 TH',10,12.60,1.80,127,7,'▧',0],
+            ['Antminer KA3 166 TH',30,43.50,2.90,166,7,'▦',0],
+            ['Antminer S21 Pro 234 TH',100,180,12.00,234,15,'▤',0],
+            ['Antminer S23 318 TH',250,525,35.00,318,15,'▥',0],
+            ['Whatsminer M63S+ 390 TH',500,1500,50.00,390,30,'⬢',0],
+            ['Antminer S21 XP Hyd 473 TH',1000,4200,140.00,473,30,'✦',0],
+            ['VIP Daily Miner',9.99,5,0.1667,95,1,'◆',1],
+            ['VIP Nova Hash 24H',19.99,12,0.40,110,30,'✦',1],
+            ['VIP Quantum Miner',29.99,20,0.6667,125,30,'⬡',1],
+            ['VIP Elite Satoshi',49.99,35,1.1667,140,30,'◈',1],
+            ['VIP Aurora ASIC',79.99,60,2.00,155,30,'◆',1],
         ];
+    $pdo->exec("UPDATE products SET active=0 WHERE name IN ('Antminer DR7 127 Th','Antminer KA3 (166 Th)','Bitmain Antminer S23','Bitmain Antminer S21 Pro','Goldshell Mini-DOGE','Whatsminer M60S','Avalon Miner A1466','IceRiver AL3','Whatsminer M63S+','VIP Black Diamond 24H')");
     $find=$pdo->prepare('SELECT id FROM products WHERE name=?');
-    $insert=$pdo->prepare('INSERT INTO products (name, price_usd, total_return_usd, daily_profit_usd, hashrate, icon, vip_only) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    $update=$pdo->prepare('UPDATE products SET price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,icon=?,vip_only=?,active=1 WHERE id=?');
+    $insert=$pdo->prepare('INSERT INTO products (name, price_usd, total_return_usd, daily_profit_usd, hashrate, duration_days, icon, vip_only) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    $update=$pdo->prepare('UPDATE products SET price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,duration_days=?,icon=?,vip_only=?,active=1 WHERE id=?');
     foreach($catalog as $product){
         $find->execute([$product[0]]);
         $id=$find->fetchColumn();
-        if($id) $update->execute([$product[1],$product[2],$product[3],$product[4],$product[5],$product[6],$id]);
+        if($id) $update->execute([$product[1],$product[2],$product[3],$product[4],$product[5],$product[6],$product[7],$id]);
         else $insert->execute($product);
     }
 
