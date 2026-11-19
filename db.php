@@ -103,17 +103,17 @@ function initializeDatabase(PDO $pdo, string $driver): void {
     }
 
     $catalog = [
-            ['Antminer DR7 127 TH',10,12.60,1.80,127,7,'▧',0],
-            ['Antminer KA3 166 TH',30,43.50,2.90,166,7,'▦',0],
+            ['Antminer DR7 127 TH',10,15.00,2.142857,127,7,'▧',0],
+            ['Antminer KA3 166 TH',30,45.00,6.428571,166,7,'▦',0],
             ['Antminer S21 Pro 234 TH',100,180,12.00,234,15,'▤',0],
             ['Antminer S23 318 TH',250,525,35.00,318,15,'▥',0],
             ['Whatsminer M63S+ 390 TH',500,1500,50.00,390,30,'⬢',0],
             ['Antminer S21 XP Hyd 473 TH',1000,4200,140.00,473,30,'✦',0],
             ['VIP Daily Miner',9.99,5,0.1667,95,1,'◆',1],
-            ['VIP Nova Hash 24H',19.99,12,0.40,110,30,'✦',1],
-            ['VIP Quantum Miner',29.99,20,0.6667,125,30,'⬡',1],
-            ['VIP Elite Satoshi',49.99,35,1.1667,140,30,'◈',1],
-            ['VIP Aurora ASIC',79.99,60,2.00,155,30,'◆',1],
+            ['VIP Nova Hash 24H',19.99,30,1.00,110,30,'✦',1],
+            ['VIP Quantum Miner',29.99,60,2.00,125,30,'⬡',1],
+            ['VIP Elite Satoshi',49.99,90,3.00,140,30,'◈',1],
+            ['VIP Aurora ASIC',79.99,140,4.666667,155,30,'◆',1],
         ];
     $pdo->exec("UPDATE products SET active=0 WHERE name IN ('Antminer DR7 127 Th','Antminer KA3 (166 Th)','Bitmain Antminer S23','Bitmain Antminer S21 Pro','Goldshell Mini-DOGE','Whatsminer M60S','Avalon Miner A1466','IceRiver AL3','Whatsminer M63S+','VIP Black Diamond 24H')");
     $find=$pdo->prepare('SELECT id FROM products WHERE name=?');

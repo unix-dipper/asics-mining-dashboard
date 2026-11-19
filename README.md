@@ -19,6 +19,7 @@ A PHP full-stack mining dashboard inspired by the supplied reference image.
 - Live crypto/USD conversion rates from CoinGecko with cached fallback
 - Tiered VIP plans ($9.99-$79.99), VIP-only machines, 24-hour daily free-machine activation, and a $5 monthly reward after 30 activations
 - Canonical public plans use model-based ASIC hashrates, 7/15/30-day durations, and duration-based expiry with increasing daily and contract returns
+- Every mining plan returns at least 150% of its purchase price; larger plans provide higher returns
 - Tiered referrals: 5% with 1-4 referrals, 7% with 5-9, and 10% with 10+
 - Administrator account suspension/reactivation, balance adjustments, deposits/earnings summaries, device/IP history, and audit logs
 - Administrator product add, edit, VIP/public classification, activation, and removal controls

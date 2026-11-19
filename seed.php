@@ -8,17 +8,17 @@ $pdo->beginTransaction();
 
 try {
     $products = [
-        ['Antminer DR7 127 TH', 10.00, 12.60, 1.80, 127, 7, '▧'],
-        ['Antminer KA3 166 TH', 30.00, 43.50, 2.90, 166, 7, '▦'],
+        ['Antminer DR7 127 TH', 10.00, 15.00, 2.142857, 127, 7, '▧'],
+        ['Antminer KA3 166 TH', 30.00, 45.00, 6.428571, 166, 7, '▦'],
         ['Antminer S21 Pro 234 TH', 100.00, 180.00, 12.00, 234, 15, '▤'],
         ['Antminer S23 318 TH', 250.00, 525.00, 35.00, 318, 15, '▥'],
         ['Whatsminer M63S+ 390 TH', 500.00, 1500.00, 50.00, 390, 30, '⬢'],
         ['Antminer S21 XP Hyd 473 TH', 1000.00, 4200.00, 140.00, 473, 30, '✦'],
         ['VIP Daily Miner', 9.99, 5.00, 0.1667, 95, 1, '◆'],
-        ['VIP Nova Hash 24H', 19.99, 12.00, 0.40, 110, 30, '✦'],
-        ['VIP Quantum Miner', 29.99, 20.00, 0.6667, 125, 30, '⬡'],
-        ['VIP Elite Satoshi', 49.99, 35.00, 1.1667, 140, 30, '◈'],
-        ['VIP Aurora ASIC', 79.99, 60.00, 2.00, 155, 30, '◆'],
+        ['VIP Nova Hash 24H', 19.99, 30.00, 1.00, 110, 30, '✦'],
+        ['VIP Quantum Miner', 29.99, 60.00, 2.00, 125, 30, '⬡'],
+        ['VIP Elite Satoshi', 49.99, 90.00, 3.00, 140, 30, '◈'],
+        ['VIP Aurora ASIC', 79.99, 140.00, 4.666667, 155, 30, '◆'],
     ];
 
     $findProduct = $pdo->prepare('SELECT id FROM products WHERE name = ?');

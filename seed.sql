@@ -303,17 +303,17 @@ WHERE `name` IN ('Antminer DR7 127 Th','Antminer KA3 (166 Th)','Bitmain Antminer
 INSERT INTO `products`
   (`id`, `name`, `price_usd`, `total_return_usd`, `daily_profit_usd`, `hashrate`, `duration_days`, `icon`, `active`, `vip_only`)
 VALUES
-  (1, 'Antminer DR7 127 TH', 10.00, 12.60, 1.80, 127, 7, '▧', 1, 0),
-  (2, 'Antminer KA3 166 TH', 30.00, 43.50, 2.90, 166, 7, '▦', 1, 0),
+  (1, 'Antminer DR7 127 TH', 10.00, 15.00, 2.142857, 127, 7, '▧', 1, 0),
+  (2, 'Antminer KA3 166 TH', 30.00, 45.00, 6.428571, 166, 7, '▦', 1, 0),
   (3, 'Antminer S21 Pro 234 TH', 100.00, 180.00, 12.00, 234, 15, '▤', 1, 0),
   (4, 'Antminer S23 318 TH', 250.00, 525.00, 35.00, 318, 15, '▥', 1, 0),
   (5, 'Whatsminer M63S+ 390 TH', 500.00, 1500.00, 50.00, 390, 30, '⬢', 1, 0),
   (6, 'Antminer S21 XP Hyd 473 TH', 1000.00, 4200.00, 140.00, 473, 30, '✦', 1, 0),
   (10, 'VIP Daily Miner', 9.99, 5.00, 0.1667, 95, 1, '◆', 1, 1),
-  (11, 'VIP Nova Hash 24H', 19.99, 12.00, 0.40, 110, 30, '✦', 1, 1),
-  (12, 'VIP Quantum Miner', 29.99, 20.00, 0.6667, 125, 30, '⬡', 1, 1),
-  (13, 'VIP Elite Satoshi', 49.99, 35.00, 1.1667, 140, 30, '◈', 1, 1),
-  (14, 'VIP Aurora ASIC', 79.99, 60.00, 2.00, 155, 30, '◆', 1, 1)
+  (11, 'VIP Nova Hash 24H', 19.99, 30.00, 1.00, 110, 30, '✦', 1, 1),
+  (12, 'VIP Quantum Miner', 29.99, 60.00, 2.00, 125, 30, '⬡', 1, 1),
+  (13, 'VIP Elite Satoshi', 49.99, 90.00, 3.00, 140, 30, '◈', 1, 1),
+  (14, 'VIP Aurora ASIC', 79.99, 140.00, 4.666667, 155, 30, '◆', 1, 1)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
   `price_usd` = VALUES(`price_usd`),

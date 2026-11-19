@@ -97,6 +97,16 @@ function productRows(array $rows): array {
         'vipOnly' => (int)($row['vip_only'] ?? 0) === 1,
     ], $rows);
 }
+function validatePlanEconomics(array $body): void {
+    $price=(float)($body['price']??0);
+    $total=(float)($body['total']??0);
+    $daily=(float)($body['daily']??0);
+    $duration=(int)($body['durationDays']??30);
+    if ($price <= 0 || $total <= 0 || $duration <= 0) response(['error'=>'Plan price, return and duration must be positive'],422);
+    if ($total < $price * 1.50) response(['error'=>'Every plan must return at least 50% profit (contract return must be at least 150% of the price)'],422);
+    $expected=$total/$duration;
+    if ($daily <= 0 || abs($daily-$expected)/max($expected,0.01)>0.15) response(['error'=>'Daily profit must match the contract total divided by its duration'],422);
+}
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $parts = pathParts();
@@ -471,11 +481,13 @@ try {
         requireAdmin($current);
         if ($method === 'GET') response($pdo->query('SELECT * FROM products ORDER BY id')->fetchAll());
         if ($method === 'POST') {
+            validatePlanEconomics($body);
             $stmt=$pdo->prepare('INSERT INTO products (name,price_usd,total_return_usd,daily_profit_usd,hashrate,duration_days,icon,active,vip_only) VALUES (?,?,?,?,?,?,?,?,?)');
             $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(int)($body['durationDays']??30),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0)]);
             response(['id'=>(int)$pdo->lastInsertId(),'ok'=>true],201);
         }
         if ($method === 'PATCH') {
+            validatePlanEconomics($body);
             $id=(int)($body['id']??0);
             $stmt=$pdo->prepare('UPDATE products SET name=?,price_usd=?,total_return_usd=?,daily_profit_usd=?,hashrate=?,duration_days=?,icon=?,active=?,vip_only=? WHERE id=?');
             $stmt->execute([(string)($body['name']??''),(float)($body['price']??0),(float)($body['total']??0),(float)($body['daily']??0),(float)($body['hashrate']??0),(int)($body['durationDays']??30),(string)($body['icon']??'▧'),(int)($body['active']??1),(int)($body['vipOnly']??0),$id]);
