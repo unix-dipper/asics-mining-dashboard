@@ -11,5 +11,5 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="ui-refresh.css" />
   </head>
-  <body><div id="app"></div><div class="toast" id="toast"></div><script src="app.js"></script><script src="ui-refresh.js"></script></body>
+  <body><div id="app"></div><div class="toast" id="toast"></div><script src="app.js"></script></body>
 </html>
